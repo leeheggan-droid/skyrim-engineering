@@ -1,0 +1,5 @@
+# synthetic load order
+ccTEST-Master.esm
+*ccTEST-Lite.esl
+ccTEST-Plugin.esp
+Skyrim.esm

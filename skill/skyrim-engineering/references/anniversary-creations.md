@@ -1,8 +1,10 @@
 # Anniversary Creation baseline
 
+Licensed-inventory verification (2026-08-06): a read-only local inventory found all 74 listed plugin identifiers and 74 associated Creation archives. No assets or installation paths were retained; the display-name mapping remains source-backed rather than inferred from asset content.
+
 Baseline: 2026-08-06. Scope: the 74 Creation Club items in Bethesda's 2021 Anniversary Edition Upgrade, including the four items also included with Special Edition—not later paid Verified Creations.
 
-[Bethesda's launch catalogue](https://elderscrolls.bethesda.net/en-AU/news/3mxTW4iQYGrVZrWRqVfomQ/skyrim-anniversary-edition-and-creation-club-content-first-look) is authoritative for the 74 English display names. Bethesda does not publish a complete filename crosswalk on that page. Plugin identifiers below are a lowercase comparison key cross-checked against the [community-maintained factual catalogue](https://www.confrerie-des-traducteurs.fr/wiki/Anniversary_Edition), which attributes its mapping to UESP. Treat the crosswalk as medium-confidence discovery data until `inventory-creations.ps1` reproduces it from the user's licensed installation. Never acquire or redistribute a plugin or BSA from this list.
+[Bethesda's launch catalogue](https://elderscrolls.bethesda.net/en-AU/news/3mxTW4iQYGrVZrWRqVfomQ/skyrim-anniversary-edition-and-creation-club-content-first-look) is authoritative for the 74 English display names. Bethesda does not publish a complete filename crosswalk on that page. Plugin identifiers below are a lowercase comparison key cross-checked against the [community-maintained factual catalogue](https://www.confrerie-des-traducteurs.fr/wiki/Anniversary_Edition), which attributes its mapping to UESP. The complete identifier set was reproduced from a licensed installation by `inventory-creations.ps1` on 2026-08-06; the display-name mapping remains source-backed rather than inferred from asset content. Never acquire or redistribute a plugin or BSA from this list.
 
 ## Display name to plugin identifier
 
@@ -92,4 +94,4 @@ This is an inventory seed, not a compatibility result. Compare lowercase relativ
 | Claim | Source | Accessed | Applies to | Confidence | Reproduced |
 |---|---|---|---|---|---|
 | The 2021 Anniversary Upgrade launch catalogue contains the 74 display names above, including four items also included with Special Edition. | [Bethesda launch catalogue](https://elderscrolls.bethesda.net/en-AU/news/3mxTW4iQYGrVZrWRqVfomQ/skyrim-anniversary-edition-and-creation-club-content-first-look) | 2026-08-06 | 2021 Anniversary Creation Club bundle only | High | Yes; list/count checked against official page |
-| The identifier crosswalk above maps those display names to Creation plugin filenames. | [Community factual crosswalk](https://www.confrerie-des-traducteurs.fr/wiki/Anniversary_Edition) | 2026-08-06 | Windows Creation filenames; lowercase comparison form | Medium | No; must be verified against a licensed local inventory |
+| The identifier crosswalk above maps those display names to Creation plugin filenames. | [Community factual crosswalk](https://www.confrerie-des-traducteurs.fr/wiki/Anniversary_Edition) | 2026-08-06 | Windows Creation filenames; lowercase comparison form | Medium | Partial; all 74 listed plugin identifiers were present in a licensed local inventory, with no filename corrections required, but display-name mapping was not inferred from asset content |

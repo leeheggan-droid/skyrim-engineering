@@ -1,0 +1,11 @@
+{
+  "schema": "skyrim-engineering.creations/v1",
+  "files": [
+    { "name": "ccTEST-A.esl", "kind": "plugin", "size": 1, "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "pluginType": "esl", "internalFlag": "notInspected", "relativePath": "ccTEST-A.esl" },
+    { "name": "ccTEST-B.esl", "kind": "plugin", "size": 1, "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "pluginType": "esl", "internalFlag": "notInspected", "relativePath": "ccTEST-B.esl" },
+    { "name": "ccTEST-Hash.esl", "kind": "plugin", "size": 1, "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "pluginType": "esl", "internalFlag": "notInspected", "relativePath": "ccTEST-Hash.esl" },
+    { "name": "ccTEST-Missing.esl", "kind": "plugin", "size": 1, "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "pluginType": "esl", "internalFlag": "notInspected", "relativePath": "ccTEST-Missing.esl" },
+    { "name": "ccTEST-Size.esl", "kind": "plugin", "size": 1, "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "pluginType": "esl", "internalFlag": "notInspected", "relativePath": "ccTEST-Size.esl" }
+  ],
+  "loadOrder": ["ccTEST-A.esl", "ccTEST-B.esl", "ccTEST-Hash.esl", "ccTEST-Missing.esl", "ccTEST-Size.esl"]
+}
