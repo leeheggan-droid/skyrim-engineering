@@ -17,6 +17,8 @@
 - Never commit Bethesda assets, Nexus packages, Skyrim Together binaries, saves, PEX files, executables, dumps, private logs, credentials, Steam IDs, network addresses, usernames, or personal absolute paths.
 - Synthetic fixtures test parsers and refusal behavior only; they never satisfy a live practical.
 - A missing live practical records `blocked` or `untested`, never PASS.
+- Reuse and cite existing official, upstream, tool-maintainer, and versioned community Skyrim knowledge before writing new mechanisms; preserve conflicting evidence until reproduced.
+- Improve Skyrim Together only for a demonstrated Anniversary compatibility defect after upstream behavior and prior art are inspected; do not build a parallel replacement or pre-emptive patch.
 - Keep Skyrim Together derivatives in a separate GPLv3 fork; do not copy upstream source here.
 - Use LF generally and CRLF for `.ps1`/`.psm1`; scripts must parse under PowerShell 7 and Windows PowerShell 5.1 where available.
 - Every completed task receives a focused independent review and a feature-branch commit.
@@ -229,7 +231,7 @@ git commit -m "feat: add Skyrim workflow and sourced references"
 - [ ] **Step 2: Verify RED**.
 - [ ] **Step 3: Implement with `SupportsShouldProcess`**, full-path checks, source `SKILL.md` requirement, no recursive deletion, read-only audit/plan/verify defaults, pinned/hash-verified approved free packages, an isolated `Anniversary Together` profile, recorded mutation journal, and rollback limited to that journal. Never install Steam, authenticate accounts, download licensed Bethesda content, copy saves, alter firewall rules, overwrite/delete add-ons, or install unapproved Nexus packages.
 - [ ] **Step 4: Author the Codex terminal guide** with exact audit, plan, separately confirmed apply, verify, and rollback commands; explain canonical baseline versus machine-specific add-ons and require existing Steam Anniversary installation.
-- [ ] **Step 5: Verify GREEN**, install into `C:\Users\jacks\.codex\skills`, run `-AuditOnly` on the reference laptop, inspect junction target, and confirm output contains no personal paths/account IDs/network data.
+- [ ] **Step 5: Verify GREEN**, install into the explicit `-CodexSkillsRoot`, run `-AuditOnly` on the reference laptop, inspect junction target, and confirm output contains no personal paths/account IDs/network data.
 - [ ] **Step 6: Commit** with `git commit -m "feat: install Skyrim skill and bootstrap laptops safely"`.
 
 ### Task 7: CI and Public Safety

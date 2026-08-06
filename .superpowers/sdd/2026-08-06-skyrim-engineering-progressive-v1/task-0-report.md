@@ -60,3 +60,20 @@ implementation is part of this task.
 round-trips, the live Papyrus V1-to-V2 save/load capture, a two-laptop Skyrim
 Together production divergence/recovery capture, sufficient scoring, and two
 independent PASS reviews.
+
+## Fix round 1
+
+The independent review findings I-01 through I-03 were resolved without
+changing the qualification boundary:
+
+- Removed both upstream-derived patch bodies from this repository. Added
+  `upstream-patch-metadata.json` containing only former hashes, public upstream
+  references, bounded commands/outcomes, and explicit separate-fork storage
+  policy.
+- Replaced public personal names and absolute home paths with role-neutral or
+  environment-derived wording across tracked documents and contracts.
+- Added a tracked-tree privacy regression that enumerates `git ls-files` and
+  rejects home paths and the known personal identifiers. No paths are excluded:
+  every tracked file is checked as public text.
+- Retained the approved integration-first and reproduce-before-patch additions
+  to the progressive design and plan.

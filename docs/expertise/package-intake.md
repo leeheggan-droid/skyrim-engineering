@@ -36,7 +36,7 @@ Create one record per package with:
 ## Licensed-package handling
 
 - Steam validates Skyrim and the Creation Kit entitlement; only metadata and original fixtures may enter the public repository.
-- Nexus-authenticated Address Library and Crash Logger packages are user-supplied inputs unless Lee explicitly authorizes acquisition. Their binaries are not committed.
+- Nexus-authenticated Address Library and Crash Logger packages are user-supplied inputs unless the authorized operator explicitly authorizes acquisition. Their binaries are not committed.
 - A TiltedEvolution derivative remains in a separate GPLv3-compliant fork with corresponding source and notices; this skill repository stores only original evidence and links.
 - xEdit, MO2, xmake, PowerShell/Pester, 7-Zip, WinDbg and Visual Studio are obtained from their official sources, then their distinct licences are recorded rather than flattened into the repository licence.
 

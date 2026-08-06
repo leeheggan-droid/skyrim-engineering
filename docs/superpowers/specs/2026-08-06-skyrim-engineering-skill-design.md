@@ -24,8 +24,7 @@ The completed capability will:
   monolithic prompt;
 - provide deterministic, read-only inspection and diagnostic scripts;
 - distinguish verified facts, community reports, hypotheses, and test results;
-- make research and engineering work repeatable across Lee, Erinn, and Flynn's
-  matching laptops;
+- make research and engineering work repeatable across matching test laptops;
 - support safe forks and upstream contributions to Skyrim Together Reborn; and
 - prevent copyrighted game or mod files, personal data, and secrets from entering
   the public repository.
@@ -38,14 +37,14 @@ The canonical public repository will be:
 
 The canonical local checkout will be:
 
-`C:\Users\jacks\github\skyrim-engineering`
+`<repository-root>`
 
 The discoverable skill path will be:
 
-`C:\Users\jacks\.codex\skills\skyrim-engineering`
+`<codex-skills-root>\skyrim-engineering`
 
 The discoverable path will be a Windows directory junction to
-`C:\Users\jacks\github\skyrim-engineering\skill\skyrim-engineering`. This keeps
+`<repository-root>\skill\skyrim-engineering`. This keeps
 Git as the only source of truth and avoids copy drift. Installation tooling must
 verify both resolved paths before creating or replacing any junction. It must
 not overwrite a real directory or an unrelated link.
@@ -216,7 +215,7 @@ Creation behaviour and synchronization level.
 
 The first project will use three identical Gigabyte Gaming A16 Windows laptops,
 Steam Skyrim Special Edition runtime `1.6.1170.0`, the licensed complete
-Anniversary Creation Club library, and Lee, Erinn, and Flynn as testers.
+Anniversary Creation Club library, and anonymous test clients.
 
 It will:
 
@@ -268,7 +267,7 @@ secret formats, prohibited binary extensions, and accidental local paths.
 - Parse every PowerShell file without executing mutations.
 - Use Pester tests and sanitized fixtures for detection, manifest, comparison,
   redaction, missing-path, and malformed-input cases.
-- Run read-only inspection against Lee's reference laptop and compare results to
+- Run read-only inspection against the reference laptop and compare results to
   directly observed game files.
 - Verify deterministic JSON output for unchanged fixtures.
 

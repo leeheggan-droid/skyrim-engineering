@@ -1,6 +1,7 @@
 parent-commit=9d81ef07d68e4bb2bd94fca246e798a564b7fb92
 mode=releasedbg x64
-patch=production-inventory-route-test.patch
+upstream-patch-metadata=upstream-patch-metadata.json
+patch-body-location=separate-GPLv3-fork-not-retained-here
 production-types=RequestInventoryChanges,NotifyInventoryChanges
 production-factories=ClientMessageFactory,ServerMessageFactory
 production-fields=ServerId,Inventory::Entry GameId/count,Drop,UpdateClients

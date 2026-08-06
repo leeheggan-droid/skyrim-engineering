@@ -140,6 +140,32 @@ Describe 'Step zero expertise evidence integrity' {
         }
     }
 
+    It 'keeps every tracked public file free of personal identifiers and home paths' {
+        $trackedPaths = @(& git -C $repoRoot ls-files)
+        $trackedPaths.Count | Should -BeGreaterThan 0
+
+        foreach ($relativePath in $trackedPaths) {
+            $path = Join-Path $repoRoot $relativePath
+            $path | Should -Exist
+            $text = Get-Content -Raw -LiteralPath $path
+
+            $homePathPatterns = @(
+                ('(?i)' + 'C:' + [regex]::Escape('\') + 'Us' + 'ers' + [regex]::Escape('\'))
+                ('(?i)' + 'C:' + [regex]::Escape('/') + 'Us' + 'ers' + [regex]::Escape('/'))
+            )
+            foreach ($homePathPattern in $homePathPatterns) {
+                $text | Should -Not -Match $homePathPattern
+            }
+            $personalIdentifiers = @(
+                [string]::Concat('l', 'ee')
+                [string]::Concat('er', 'inn')
+                [string]::Concat('fl', 'ynn')
+                [string]::Concat('ja', 'cks')
+            )
+            $text | Should -Not -Match ('(?i)\b(' + ($personalIdentifiers -join '|') + ')\b')
+        }
+    }
+
     It 'requires a selected repository licence and deterministic original-only package' {
         $release.repositoryLicenseSelected | Should -BeTrue
         $release.deterministicPackageVerified | Should -BeTrue

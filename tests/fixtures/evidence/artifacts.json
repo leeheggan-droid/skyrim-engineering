@@ -27,11 +27,7 @@
     },
     {
       "path": "tests/fixtures/together/build-evidence.txt",
-      "sha256": "91C51A114368ECF3882EA3F6982A6E4BE89C1A56C76FF9090A67BC29EA8C4FA9"
-    },
-    {
-      "path": "tests/fixtures/together/tiltedreverse-xmake-fix.patch",
-      "sha256": "78C5DB801E5F2FB546413B569268949C5E1321E3A2A82185E9BF402430DB466C"
+      "sha256": "7500A5FBA2BC511854603C2145BE57E7A0568DEAC0E71F9296B9192BB880B133"
     },
     {
       "path": "tests/fixtures/intake/accepted-packages.json",
@@ -58,12 +54,8 @@
       "sha256": "E0945B0BCABB6E524F72F14F03BDA742C15E0D816B7FD27D5686622DE6E023F9"
     },
     {
-      "path": "tests/fixtures/together/production-inventory-route-test.patch",
-      "sha256": "224225239294A937EE154F9A7BCDAE684AFB7184421D29984258CCA9EE3F8252"
-    },
-    {
       "path": "tests/fixtures/together/production-inventory-route-evidence.txt",
-      "sha256": "F5FD0D3D8243CFEA7B8A3AD940577BD0D7A58EAF19A0A84E4142EA5BCFD3561B"
+      "sha256": "9DC77E577ABD28808A902D67403033BF41EB9BC71118175D29DA5A9B000CE2CC"
     },
     {
       "path": "tests/fixtures/together/desync-boundary.md",

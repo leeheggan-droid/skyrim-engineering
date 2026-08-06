@@ -81,7 +81,7 @@
       "items": [
         {"id": "symbolized-crash", "awarded": 3, "maximum": 3, "evidence": ["tests/fixtures/diagnostics/cdb-reverse-evidence.txt"]},
         {"id": "missing-master-parity", "awarded": 2, "maximum": 2, "evidence": ["tests/fixtures/diagnostics/raw-cases.json"]},
-        {"id": "production-desync-edge", "awarded": 0, "maximum": 3, "evidence": ["tests/fixtures/together/Test-DesyncEdge.ps1", "tests/fixtures/together/desync-boundary.md", "tests/fixtures/together/production-inventory-route-test.patch", "tests/fixtures/together/production-inventory-route-evidence.txt"]},
+        {"id": "production-desync-edge", "awarded": 0, "maximum": 3, "evidence": ["tests/fixtures/together/Test-DesyncEdge.ps1", "tests/fixtures/together/desync-boundary.md", "tests/fixtures/together/upstream-patch-metadata.json", "tests/fixtures/together/production-inventory-route-evidence.txt"]},
         {"id": "scoped-fix-matrix-privacy", "awarded": 2, "maximum": 2, "evidence": ["tests/fixtures/together/anniversary-test-matrix.json"]}
       ]
     },
@@ -108,7 +108,7 @@
         {"id": "mod-mapping", "awarded": 4, "maximum": 4, "evidence": ["docs/expertise/architecture-traces.md"]},
         {"id": "actor-ownership", "awarded": 4, "maximum": 4, "evidence": ["docs/expertise/architecture-traces.md"]},
         {"id": "inventory-quest-flow", "awarded": 4, "maximum": 4, "evidence": ["docs/expertise/architecture-traces.md"]},
-        {"id": "reproducible-build-tests", "awarded": 5, "maximum": 5, "evidence": ["tests/fixtures/together/build-evidence.txt", "tests/fixtures/together/tiltedreverse-xmake-fix.patch"]},
+        {"id": "reproducible-build-tests", "awarded": 5, "maximum": 5, "evidence": ["tests/fixtures/together/build-evidence.txt", "tests/fixtures/together/upstream-patch-metadata.json"]},
         {"id": "upstream-three-client-plan", "awarded": 2, "maximum": 3, "evidence": ["tests/fixtures/together/anniversary-test-matrix.json"]}
       ]
     }

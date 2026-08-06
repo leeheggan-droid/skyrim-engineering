@@ -10,6 +10,14 @@ requiring live Creation Kit, Skyrim runtime, or multi-laptop qualification.
 Preserve the existing expertise evidence and strict release standard, but move
 those checks to the stage where a completed skill can help execute them.
 
+The capability is integration-first. It must reuse and cite the strongest
+existing Skyrim knowledge available—official Bethesda and Creation Kit
+documentation, xEdit/SKSE/Address Library material, Tilted Evolution source and
+documentation, established tool behavior, and versioned community reproduction
+evidence—before creating new mechanisms. Original work focuses on closing
+demonstrated Skyrim Together Anniversary compatibility gaps, not replacing the
+existing Skyrim modding ecosystem or pre-emptively rewriting upstream code.
+
 The release sequence has two explicit milestones:
 
 - `v0.1 provisional`: a public, locally installed, safe engineering skill whose
@@ -198,6 +206,13 @@ Every implementation phase receives:
 Before `v0.1`, a whole-branch review checks the skill, scripts, public safety,
 and release claims. Before `v1.0`, two domain reviewers independently assess the
 raw qualification evidence and scoring in addition to the final code review.
+
+For any proposed Skyrim Together change, the evidence package must first show
+the current upstream behavior, applicable Anniversary content/runtime, prior
+art searched, and a reproducible compatibility defect. Prefer configuration,
+profile parity, documented upstream capabilities, or a focused upstream-quality
+fix over a parallel bespoke implementation. No fork or patch is justified by
+the mere presence of Anniversary content.
 
 ## Error Handling and Safety
 

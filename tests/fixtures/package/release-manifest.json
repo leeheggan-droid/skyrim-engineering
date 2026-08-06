@@ -35,8 +35,8 @@
                   },
                   {
                       "path":  "docs/expertise/package-intake.md",
-                      "bytes":  5886,
-                      "sha256":  "7C206B28C4BA122D66E51CC5098A1C532182DA73856BC4A44F6EA17EEBF7C5F1"
+                      "bytes":  5906,
+                      "sha256":  "C0A35CAB1CFB2487CCCD77DAD9D3817FEA3EDB52F9036164DCDD5772E2C4FB11"
                   },
                   {
                       "path":  "docs/expertise/practicals.md",
@@ -60,8 +60,8 @@
                   },
                   {
                       "path":  "tests/Expertise.Tests.ps1",
-                      "bytes":  10130,
-                      "sha256":  "A9A335F91C3FD907D9A693D83826FA38D9A0DA8F82FE23645EF1A7FA8633C667"
+                      "bytes":  11239,
+                      "sha256":  "7370744C2F907FE8DC01CDCDE8E94A0FFC859332411A4481EBC1333E44762248"
                   },
                   {
                       "path":  "tests/QualificationState.Tests.ps1",
@@ -115,8 +115,8 @@
                   },
                   {
                       "path":  "tests/fixtures/evidence/assessment.json",
-                      "bytes":  6249,
-                      "sha256":  "CE75CD60A02B260F12099BDBDA726BC323073C6EA4FDF8CA900CAFE184D53660"
+                      "bytes":  6239,
+                      "sha256":  "479EB41729107F2600CCEF8CE03BBE8D98065B8AEEFC95C63A8E838C78185883"
                   },
                   {
                       "path":  "tests/fixtures/evidence/gate-requirements.json",
@@ -170,8 +170,8 @@
                   },
                   {
                       "path":  "tests/fixtures/papyrus/papyrus-runtime-contract.json",
-                      "bytes":  1118,
-                      "sha256":  "96A961ED98E4897F04C2671BD46C70E0B11EA7E6E4C1E18F7BCDD23E6D9A1BF2"
+                      "bytes":  1137,
+                      "sha256":  "27B32C21296DA997E07A0EDCB65EAE4C05778F8E03DEE871A347F719BA2FDDA1"
                   },
                   {
                       "path":  "tests/fixtures/papyrus/runtime-v1/SEG_RuntimeMigration.psc",
@@ -220,8 +220,8 @@
                   },
                   {
                       "path":  "tests/fixtures/together/build-evidence.txt",
-                      "bytes":  1647,
-                      "sha256":  "91C51A114368ECF3882EA3F6982A6E4BE89C1A56C76FF9090A67BC29EA8C4FA9"
+                      "bytes":  1722,
+                      "sha256":  "7500A5FBA2BC511854603C2145BE57E7A0568DEAC0E71F9296B9192BB880B133"
                   },
                   {
                       "path":  "tests/fixtures/together/desync-boundary.md",
@@ -230,18 +230,13 @@
                   },
                   {
                       "path":  "tests/fixtures/together/production-inventory-route-evidence.txt",
-                      "bytes":  983,
-                      "sha256":  "F5FD0D3D8243CFEA7B8A3AD940577BD0D7A58EAF19A0A84E4142EA5BCFD3561B"
+                      "bytes":  1050,
+                      "sha256":  "9DC77E577ABD28808A902D67403033BF41EB9BC71118175D29DA5A9B000CE2CC"
                   },
                   {
-                      "path":  "tests/fixtures/together/production-inventory-route-test.patch",
-                      "bytes":  2276,
-                      "sha256":  "224225239294A937EE154F9A7BCDAE684AFB7184421D29984258CCA9EE3F8252"
-                  },
-                  {
-                      "path":  "tests/fixtures/together/tiltedreverse-xmake-fix.patch",
-                      "bytes":  2307,
-                      "sha256":  "78C5DB801E5F2FB546413B569268949C5E1321E3A2A82185E9BF402430DB466C"
+                      "path":  "tests/fixtures/together/upstream-patch-metadata.json",
+                      "bytes":  1572,
+                      "sha256":  "733E3200C3940F26415326474F55694957122747F15380FACCE5E013CA367AB3"
                   },
                   {
                       "path":  "tests/fixtures/xedit/CreateCkFixtureV2.pas",

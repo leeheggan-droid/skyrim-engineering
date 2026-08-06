@@ -19,5 +19,5 @@
     "post-save-hash"
   ],
   "captureCommand": "powershell -File tests/fixtures/papyrus/Test-RuntimeCapture.ps1 -V1PapyrusLog <V1-log> -V2PapyrusLog <V2-log> -SaveBefore <save-A> -SaveAfter <save-B> -StageManifest <manifest> -CaptureOutput C:\\tmp\\<capture>.json",
-  "limitations": "No runtime evidence is present. Lee must launch Skyrim, create/load disposable saves, and capture fresh phase-separated logs."
+  "limitations": "No runtime evidence is present. An authorized operator must launch Skyrim, create/load disposable saves, and capture fresh phase-separated logs."
 }

@@ -94,7 +94,7 @@ Every entry in `source-register.md` must include title, canonical URL or reposit
 
 Record installed version, discovery path with username removed, licence, source, purpose, and readiness for: Steam Skyrim SE/AE, Creation Kit, xEdit/SSEEdit, Mod Organizer 2, Vortex, SKSE, Address Library, Visual Studio 2022 C++ workload/Build Tools, CMake, xmake, Git, Git LFS, PowerShell 7, Python, Node.js, 7-Zip, WinDbg, Crash Logger SSE AE VR, upstream TiltedEvolution source, and its submodule/dependency prerequisites.
 
-Classify each as `ready`, `missing-free`, `missing-user-supplied`, `not-required-v1`, or `blocked`. Do not install or execute an untrusted package during the audit. In `package-intake.md`, define checks for origin, signature/hash, licence, malware scan, version, supported runtime, redistribution rights, secrets, binary execution risk, and destination. List the exact missing packages Lee can supply or authorize only after the audit proves they are needed.
+Classify each as `ready`, `missing-free`, `missing-user-supplied`, `not-required-v1`, or `blocked`. Do not install or execute an untrusted package during the audit. In `package-intake.md`, define checks for origin, signature/hash, licence, malware scan, version, supported runtime, redistribution rights, secrets, binary execution risk, and destination. List the exact missing packages the authorized operator can supply or authorize only after the audit proves they are needed.
 
 - [ ] **Step 5: Complete hands-on design and build practicals**
 
@@ -179,7 +179,7 @@ Expected: FAIL because the skill and hygiene files do not exist.
 Run the official initializer:
 
 ```powershell
-python C:\Users\jacks\.codex\skills\.system\skill-creator\scripts\init_skill.py skyrim-engineering `
+python "$env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\init_skill.py" skyrim-engineering `
   --path .\skill `
   --resources scripts,references `
   --interface "display_name=Skyrim Engineering" `
@@ -243,11 +243,11 @@ Replace the template with frontmatter whose description names all trigger domain
 - [ ] **Step 4: Regenerate UI metadata and validate**
 
 ```powershell
-python C:\Users\jacks\.codex\skills\.system\skill-creator\scripts\generate_openai_yaml.py .\skill\skyrim-engineering `
+python "$env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\generate_openai_yaml.py" .\skill\skyrim-engineering `
   --interface "display_name=Skyrim Engineering" `
   --interface "short_description=Diagnose and engineer Skyrim SE/AE and Skyrim Together" `
   --interface "default_prompt=Use the Skyrim engineering workflow to inspect evidence, diagnose the exact versioned problem, and produce a safe tested result."
-python C:\Users\jacks\.codex\skills\.system\skill-creator\scripts\quick_validate.py .\skill\skyrim-engineering
+python "$env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py" .\skill\skyrim-engineering
 pwsh -NoProfile -Command "Invoke-Pester tests/Skill.Tests.ps1 -Output Detailed"
 ```
 
@@ -454,7 +454,7 @@ git commit -m "feat: collect sanitized Skyrim diagnostics"
 
 - [ ] **Step 1: Write failing schema tests**
 
-Test that every case has unique `id`, `preconditions`, `steps`, `expected`, `evidence`, and `cleanup`; validate permitted status values and require three client slots named `lee`, `erinn`, and `flynn` only in private input manifests, while public result schemas use anonymous `client-a|b|c` identifiers.
+Test that every case has unique `id`, `preconditions`, `steps`, `expected`, `evidence`, and `cleanup`; validate permitted status values and require anonymous private client slots, while public result schemas use `client-a|b|c` identifiers.
 
 - [ ] **Step 2: Verify failure**
 
@@ -508,9 +508,9 @@ Resolve both roots with `[IO.Path]::GetFullPath()`. Require source `SKILL.md`. I
 ```powershell
 pwsh -NoProfile -Command "Invoke-Pester tests/InstallSkill.Tests.ps1 -Output Detailed"
 pwsh -NoProfile -File skill/skyrim-engineering/scripts/install-skill.ps1 `
-  -RepositoryRoot 'C:\Users\jacks\github\skyrim-engineering' `
-  -CodexSkillsRoot 'C:\Users\jacks\.codex\skills'
-Get-Item -Force 'C:\Users\jacks\.codex\skills\skyrim-engineering' | Format-List LinkType,Target
+  -RepositoryRoot '<repository-root>' `
+  -CodexSkillsRoot "$env:USERPROFILE\.codex\skills"
+Get-Item -Force "$env:USERPROFILE\.codex\skills\skyrim-engineering" | Format-List LinkType,Target
 ```
 
 Expected: tests PASS; `LinkType` is `Junction` and target is the canonical checkout skill directory.
@@ -534,7 +534,7 @@ git commit -m "feat: safely install local Skyrim skill"
 
 - [ ] **Step 1: Write failing public-safety tests**
 
-Enumerate tracked files with `git ls-files`. Reject prohibited extensions (`.bsa`, `.esm`, `.esp`, `.esl`, `.ess`, `.skse`, `.dmp`, `.exe`, `.dll`, `.7z`, `.zip`) outside synthetic text fixtures; reject patterns for GitHub tokens, Steam IDs, `C:\Users\`, IPv4 addresses in result data, and private-key headers.
+Enumerate tracked files with `git ls-files`. Reject prohibited extensions (`.bsa`, `.esm`, `.esp`, `.esl`, `.ess`, `.skse`, `.dmp`, `.exe`, `.dll`, `.7z`, `.zip`) outside synthetic text fixtures; reject patterns for GitHub tokens, Steam IDs, personal absolute paths, IPv4 addresses in result data, and private-key headers.
 
 - [ ] **Step 2: Verify failure before workflow creation**
 
@@ -549,7 +549,7 @@ Pin `runs-on: windows-2022`; checkout the repository; install Pester 5 for Curre
 - [ ] **Step 4: Run complete local verification**
 
 ```powershell
-python C:\Users\jacks\.codex\skills\.system\skill-creator\scripts\quick_validate.py .\skill\skyrim-engineering
+python "$env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py" .\skill\skyrim-engineering
 pwsh -NoProfile -Command "$errors=$null; Get-ChildItem -Recurse -Include *.ps1,*.psm1 | ForEach-Object { [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$null,[ref]$errors); if($errors){$errors; exit 1} }"
 pwsh -NoProfile -Command "Invoke-Pester tests -Output Detailed"
 git diff --check
