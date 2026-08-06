@@ -38,6 +38,104 @@
 - `.github/workflows/validate.yml`: Windows validation without proprietary dependencies.
 - `.gitattributes`, `.gitignore`, `LICENSE`: repository hygiene and licensing.
 
+### Task 0: Skyrim Design-and-Build Expertise Gate
+
+**Files:**
+- Create: `docs/expertise/syllabus.md`
+- Create: `docs/expertise/source-register.md`
+- Create: `docs/expertise/toolchain-audit.md`
+- Create: `docs/expertise/architecture-traces.md`
+- Create: `docs/expertise/practicals.md`
+- Create: `docs/expertise/assessment-rubric.md`
+- Create: `docs/expertise/assessment-results.md`
+- Create: `docs/expertise/package-intake.md`
+- Create: `tests/Expertise.Tests.ps1`
+
+**Interfaces:**
+- Consumes: official Bethesda/Creation Kit material, xEdit primary documentation and source, SKSE/Address Library primary material, Steam runtime facts, Tilted Phoques documentation and source, sanitized local observations, and user-supplied licensed packages that pass intake.
+- Produces: a versioned body of evidence demonstrating Skyrim data, design, tooling, runtime, diagnostics, packaging, and multiplayer architecture competence before Task 1 begins.
+
+- [ ] **Step 1: Write the expertise acceptance test**
+
+Create `tests/Expertise.Tests.ps1` to require all eight evidence files, reject unresolved markers, require at least two primary sources per critical domain, and fail any assessment domain below its threshold:
+
+```powershell
+Describe 'Step zero expertise gate' {
+    $domains = @('data-model','creation-kit','xedit','papyrus','runtime-extensibility','diagnostics','packaging','together-architecture')
+    It 'has complete evidence files' {
+        @('syllabus','source-register','toolchain-audit','architecture-traces','practicals','assessment-rubric','assessment-results','package-intake') |
+            ForEach-Object { "docs/expertise/$_.md" | Should -Exist }
+    }
+    It 'has no unresolved content' {
+        Get-ChildItem docs/expertise -Filter '*.md' |
+            ForEach-Object { Get-Content -Raw $_ | Should -Not -Match '\b(TBD|TODO|FIXME|UNKNOWN)\b' }
+    }
+    It 'passes every critical domain' {
+        $results = Get-Content -Raw docs/expertise/assessment-results.md
+        $domains | ForEach-Object { $results | Should -Match "(?m)^\| $_ \| [0-9]+ \| [0-9]+ \| PASS \|" }
+        $results | Should -Not -Match '(?m)^\| .* \| .* \| .* \| (FAIL|WAIVED) \|'
+    }
+}
+```
+
+- [ ] **Step 2: Run the gate and verify failure**
+
+Run: `pwsh -NoProfile -Command "Invoke-Pester tests/Expertise.Tests.ps1 -Output Detailed"`
+
+Expected: FAIL because expertise evidence and results do not exist.
+
+- [ ] **Step 3: Build the primary-source syllabus and source register**
+
+Cover these critical domains with applicable-version boundaries and at least two primary sources each: Skyrim plugin/record data model; masters, overrides, ESL flags and compacted FormIDs; assets/archives/localization; Creation Kit world, quest, dialogue, actor, package, cell, navmesh, and Papyrus workflows; xEdit inspection, conflict analysis, cleaning, scripting, and safe patch creation; Papyrus VM/events/persistence; SKSE, Address Library, runtime relocation and ABI risk; crash logs/minidumps/save and load-order diagnosis; mod packaging/deployment/licensing; and Skyrim Together client/server ownership, serialization, mod mapping, quest/actor/inventory synchronization, build, test, and contribution paths.
+
+Every entry in `source-register.md` must include title, canonical URL or repository path, publisher/maintainer, source type, accessed date, applicable versions, licence/access constraint, and the precise claim or workflow it supports. Community sources may identify leads but cannot satisfy the two-primary-source threshold.
+
+- [ ] **Step 4: Audit the complete local toolchain before acquiring anything**
+
+Record installed version, discovery path with username removed, licence, source, purpose, and readiness for: Steam Skyrim SE/AE, Creation Kit, xEdit/SSEEdit, Mod Organizer 2, Vortex, SKSE, Address Library, Visual Studio 2022 C++ workload/Build Tools, CMake, xmake, Git, Git LFS, PowerShell 7, Python, Node.js, 7-Zip, WinDbg, Crash Logger SSE AE VR, upstream TiltedEvolution source, and its submodule/dependency prerequisites.
+
+Classify each as `ready`, `missing-free`, `missing-user-supplied`, `not-required-v1`, or `blocked`. Do not install or execute an untrusted package during the audit. In `package-intake.md`, define checks for origin, signature/hash, licence, malware scan, version, supported runtime, redistribution rights, secrets, binary execution risk, and destination. List the exact missing packages Lee can supply or authorize only after the audit proves they are needed.
+
+- [ ] **Step 5: Complete hands-on design and build practicals**
+
+Use original/synthetic fixtures or locally licensed content without committing it. Record commands, versions, observations, and sanitized outputs for all of the following:
+
+1. Decode standard and `0xFE` light-plugin FormIDs in both directions and trace master-relative to load-order-resolved IDs.
+2. Inspect a plugin header, masters, flags, overrides, scripts, archives, and conflicts in xEdit without saving changes.
+3. Create a tiny original Creation Kit test plugin containing a cell object, actor, dialogue/quest stage, package, inventory item, and Papyrus event; package only the original source/fixture where licensing allows.
+4. Compile Papyrus, inspect logs, deliberately trigger a safe synthetic error, and explain persistence/save implications.
+5. Trace a representative actor, inventory item, quest stage, and lite-plugin FormID through TiltedEvolution client capture, encoding, server state, and remote application using exact source paths/functions.
+6. Configure and build current TiltedEvolution in an isolated checkout, or document an exact reproducible blocker with the failing command and full non-secret output; a missing freely obtainable prerequisite is not a pass.
+7. Triage sanitized crash, plugin-parity, missing-master, and desynchronization fixtures and distinguish observation, hypothesis, reproduction, and fix.
+8. Produce a legally safe release manifest containing only original/GPL-compatible code, hashes, provenance, supported versions, and rollback instructions.
+
+- [ ] **Step 6: Run a scored expertise assessment**
+
+Define a 100-point rubric before answering: data model 15, Creation Kit/design 15, xEdit 10, Papyrus 10, runtime extensibility 10, diagnostics 10, packaging/legal 10, and Skyrim Together architecture/build 20. Require at least 80% in every domain and 90% overall; prohibit waivers.
+
+Assessment prompts must use raw fixtures and source code locations rather than answers from the syllabus. Include explanation, diagnosis, design, and build tasks. Record each score, evidence link, assessor finding, and remediation. A failed domain triggers additional practical work and a fresh equivalent assessment; do not average a failure away.
+
+- [ ] **Step 7: Have independent agents review the evidence and assessment**
+
+Dispatch one reviewer for Skyrim data/Creation Kit/Papyrus and another for Skyrim Together/runtime/build. Give each only the evidence files, raw fixtures, rubric, and relevant primary sources—not intended conclusions. Require explicit verdicts on source accuracy, practical reproducibility, assessment scoring, blind spots, and whether the gate should pass. Resolve all Critical/Important findings through the standard task fix loop.
+
+- [ ] **Step 8: Run the gate and commit only on a genuine pass**
+
+```powershell
+pwsh -NoProfile -Command "Invoke-Pester tests/Expertise.Tests.ps1 -Output Detailed"
+rg -n "\b(TBD|TODO|FIXME|UNKNOWN)\b|C:\\Users\\|7656119|gho_" docs/expertise
+git diff --check
+```
+
+Expected: Pester PASS; every domain is at least 80%, overall score is at least 90%, both independent reviews approve, `rg` finds no unresolved/private content, and the build practical either succeeds or the gate remains open.
+
+Only after all expectations pass:
+
+```powershell
+git add docs/expertise tests/Expertise.Tests.ps1
+git commit -m "docs: establish Skyrim engineering expertise baseline"
+```
+
 ### Task 1: Repository Foundation and Skill Skeleton
 
 **Files:**
