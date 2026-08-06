@@ -90,4 +90,30 @@ Describe 'Skyrim engineering common module' {
         @('username', 'steam-id', 'ipv4', 'token', 'password') |
             ForEach-Object { $protected | Should -Match ("\[REDACTED:{0}\]" -f $_) }
     }
+
+    It 'redacts colon-delimited, quoted, and Basic authorization credentials' {
+        if (-not (Test-Path -LiteralPath $modulePath)) {
+            $false | Should -BeTrue
+            return
+        }
+
+        Import-Module -Force $modulePath
+        $passwordSecret = ('moon' + 'light phrase')
+        $tokenSecret = ('token' + 'Value')
+        $apiKeySecret = ('api' + 'Key with spaces')
+        $basicCredential = ('QmFzaWM' + '6Y3JlZGVudGlhbA==')
+        $input = @(
+            "password: `"$passwordSecret`""
+            "token: $tokenSecret"
+            "apikey: `"$apiKeySecret`""
+            "Authorization: Basic $basicCredential"
+        ) -join "`n"
+
+        $protected = Protect-DiagnosticText -Text $input
+
+        @($passwordSecret, $tokenSecret, $apiKeySecret, $basicCredential) |
+            ForEach-Object { $protected | Should -Not -Match ([regex]::Escape($_)) }
+        $protected | Should -Match '\[REDACTED:password\]'
+        $protected | Should -Match '\[REDACTED:token\]'
+    }
 }
