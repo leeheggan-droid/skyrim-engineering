@@ -184,6 +184,27 @@ Describe 'Step zero expertise evidence integrity' {
         }
     }
 
+    It 'rejects a manifest that shrinks the independently governed qualification scope' {
+        $original = Get-Content -Raw (Join-Path $repoRoot 'tests\fixtures\package\release-manifest.json') | ConvertFrom-Json
+        $licensePath = Join-Path $repoRoot 'LICENSE'
+        $original.scopeRoots = @('LICENSE')
+        $original.files = @([pscustomobject]@{
+            path = 'LICENSE'
+            bytes = (Get-Item -LiteralPath $licensePath).Length
+            sha256 = (Get-FileHash -LiteralPath $licensePath -Algorithm SHA256).Hash
+        })
+        $reduced = Join-Path $TestDrive 'reduced-release.json'
+        $original | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $reduced
+        $destination = "C:\tmp\skyrim-engineering-release-$([guid]::NewGuid().ToString('N'))"
+        $pwsh = (Get-Process -Id $PID).Path
+
+        $output = & $pwsh -NoProfile -File (Join-Path $repoRoot 'tests\fixtures\package\Test-EvidenceManifest.ps1') `
+            -RepositoryRoot $repoRoot -Manifest $reduced -Destination $destination 2>&1
+
+        $LASTEXITCODE | Should -Not -Be 0 -Because ($output -join [Environment]::NewLine)
+        Test-Path -LiteralPath $destination | Should -BeFalse
+    }
+
     It 'keeps unresolved qualified reviews explicit without blocking provisional release' {
         $qualification = Get-Content -Raw (Join-Path $repoRoot 'qualification\state.json') | ConvertFrom-Json
         $approvedScopes = @($reviews.reviews | Where-Object { $_.verdict -eq 'PASS' -and $_.approved }).scope | Select-Object -Unique

@@ -21,31 +21,22 @@
       "order": 1
     },
     {
-      "id": "address-library",
+      "id": "skse-runtime",
       "category": "approvedShared",
       "root": "profile",
-      "relativePath": "mods/Address Library/versionlib-1-6-1170-0.bin",
-      "sha256": "ad7dbd4c840442da35dba1cdae2eceaaa82d4f993525aa15321cc1b573cbda2e",
-      "version": "11",
-      "catalogId": "address-library-11"
+      "relativePath": "mods/SKSE/skse64_1_6_1170.dll",
+      "sha256": "c9a2c8a80df6bf2372c5f49468bb2e5ab67786157265b6f29ece9f4eac075d54",
+      "version": "2.2.6",
+      "catalogId": "skse-ae-2-2-6-official"
     },
     {
-      "id": "skse",
+      "id": "skse-loader",
       "category": "approvedShared",
       "root": "profile",
       "relativePath": "mods/SKSE/skse64_loader.exe",
-      "sha256": "a37fe2a2380459ead548295f87f3969d98624add0599f6baebf222548ba31ccf",
+      "sha256": "730c2743f6871fbaeb8606c1d3b7a55feca045c3d74858a41b0c6d03cd989fbc",
       "version": "2.2.6",
-      "catalogId": "skse-2-2-6"
-    },
-    {
-      "id": "skyrim-together",
-      "category": "approvedShared",
-      "root": "profile",
-      "relativePath": "mods/Skyrim Together/SkyrimTogether.exe",
-      "sha256": "929fd46267dee1b3cb1e215f72517245467b2872b3798244c911d0e9d4affc4a",
-      "version": "1.7.1",
-      "catalogId": "skyrim-together-1-7-1"
+      "catalogId": "skse-ae-2-2-6-official"
     }
   ],
   "loadOrder": [

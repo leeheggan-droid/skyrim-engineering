@@ -5,6 +5,8 @@ Describe 'setup-laptop safe bootstrap' {
         $script:setupScript = Join-Path $PSScriptRoot '..\skill\skyrim-engineering\scripts\setup-laptop.ps1'
         $script:fixtureRoot = Join-Path $PSScriptRoot 'fixtures\laptop'
         $script:canonical = Join-Path $fixtureRoot 'canonical\manifest.json'
+        $script:officialSkseArchive = 'C:\tmp\skse64_2_02_06.7z'
+        $script:sevenZip = 'C:\Program Files\7-Zip\7z.exe'
 
         function Import-SetupFunction([string]$Name) {
             $tokens = $null; $errors = $null
@@ -13,7 +15,7 @@ Describe 'setup-laptop safe bootstrap' {
             if ($null -eq $definition) { throw "Missing setup function: $Name" }
             Invoke-Expression ($definition.Extent.Text -replace ('^function\s+' + [regex]::Escape($Name)), ('function script:' + $Name))
         }
-        foreach ($name in @('Convert-ToPortablePath', 'Assert-SafeRelativePath', 'Get-NormalizedPath', 'Assert-NoReparseAncestor', 'Get-LowerHash', 'Assert-ContainedPath', 'Assert-SourcePackage', 'Write-ApprovedZipEntry')) {
+        foreach ($name in @('Convert-ToPortablePath', 'Assert-SafeRelativePath', 'Get-NormalizedPath', 'Assert-NoReparseAncestor', 'Get-LowerHash', 'Assert-ContainedPath', 'Assert-SourcePackage')) {
             Import-SetupFunction $name
         }
 
@@ -25,6 +27,8 @@ Describe 'setup-laptop safe bootstrap' {
                 [Parameter(Mandatory = $true)][string]$StateDirectory,
                 [string]$Manifest = $script:canonical,
                 [string]$PackageCache = $script:packageCache,
+                [string]$ToolRoot,
+                [string]$InterruptAfter,
                 [switch]$ConfirmApply,
                 [switch]$WhatIf
             )
@@ -39,6 +43,8 @@ Describe 'setup-laptop safe bootstrap' {
             $arguments[$Mode] = $true
             if ($ConfirmApply) { $arguments.ConfirmApply = $true }
             if ($Mode -eq 'Apply') { $arguments.PackageCache = $PackageCache }
+            if (-not [string]::IsNullOrWhiteSpace($ToolRoot)) { $arguments.ToolRoot = $ToolRoot }
+            if (-not [string]::IsNullOrWhiteSpace($InterruptAfter)) { $arguments.InterruptAfter = $InterruptAfter }
             if ($WhatIf) { $arguments.WhatIf = $true }
             & $script:setupScript @arguments
         }
@@ -50,15 +56,9 @@ Describe 'setup-laptop safe bootstrap' {
         $script:profileRoot = Join-Path $caseRoot 'Profiles'
         $script:stateRoot = Join-Path $caseRoot 'State'
         $script:packageCache = Join-Path $caseRoot 'PackageCache'
-        New-Item -ItemType Directory -Path $gameRoot, $profileRoot, $stateRoot, $packageCache -Force | Out-Null
-        $archives = [ordered]@{
-            'skse-2.2.6.zip' = 'UEsDBBQAAAAIAAAAISiXPmDqGgAAABUAAAARAAAAc2tzZTY0X2xvYWRlci5leGUBFQDq/3N5bnRoZXRpYy1za3NlLWxvYWRlclBLAQIUABQAAAAIAAAAISiXPmDqGgAAABUAAAARAAAAAAAAAAAAAAAAAAAAAABza3NlNjRfbG9hZGVyLmV4ZVBLBQYAAAAAAQABAD8AAABJAAAAAAA='
-            'address-library-11.zip' = 'UEsDBBQAAAAIAAAAISj51lYXHgAAABkAAAAZAAAAdmVyc2lvbmxpYi0xLTYtMTE3MC0wLmJpbgEZAOb/c3ludGhldGljLWFkZHJlc3MtbGlicmFyeVBLAQIUABQAAAAIAAAAISj51lYXHgAAABkAAAAZAAAAAAAAAAAAAAAAAAAAAAB2ZXJzaW9ubGliLTEtNi0xMTcwLTAuYmluUEsFBgAAAAABAAEARwAAAFUAAAAAAA=='
-            'skyrim-together-1.7.1.zip' = 'UEsDBBQAAAAIAAAAISiApSvtHgAAABkAAAASAAAAU2t5cmltVG9nZXRoZXIuZXhlARkA5v9zeW50aGV0aWMtdG9nZXRoZXItY2xpZW50UEsBAhQAFAAAAAgAAAAhKIClK+0eAAAAGQAAABIAAAAAAAAAAAAAAAAAAAAAAFNreXJpbVRvZ2V0aGVyLmV4ZVBLBQYAAAAAAQABAEAAAABOAAAAAAA='
-        }
-        foreach ($archive in $archives.GetEnumerator()) {
-            [IO.File]::WriteAllBytes((Join-Path $packageCache $archive.Key), [Convert]::FromBase64String($archive.Value))
-        }
+        $script:toolRoot = Join-Path $caseRoot 'Tools'
+        New-Item -ItemType Directory -Path $gameRoot, $profileRoot, $stateRoot, $packageCache, $toolRoot -Force | Out-Null
+        if (Test-Path -LiteralPath $officialSkseArchive) { Copy-Item -LiteralPath $officialSkseArchive -Destination (Join-Path $packageCache 'skse64_2_02_06.7z') }
     }
 
     It 'requires exactly one explicit mode and an anonymous client id' {
@@ -84,9 +84,8 @@ Describe 'setup-laptop safe bootstrap' {
         $audit.clientId | Should -Be 'client-a'
         @($audit.categories.PSObject.Properties.Name) | Should -Be @('anniversaryBaseline', 'approvedShared', 'machineSpecific', 'unknownOrIncompatible')
         @($audit.differences.missing.relativePath) | Should -Be @(
-            'mods/Address Library/versionlib-1-6-1170-0.bin',
-            'mods/SKSE/skse64_loader.exe',
-            'mods/Skyrim Together/SkyrimTogether.exe'
+            'mods/SKSE/skse64_1_6_1170.dll',
+            'mods/SKSE/skse64_loader.exe'
         )
         @($audit.differences.hashDifferent.relativePath) | Should -Be @('Data/Skyrim.synthetic.txt')
         @($audit.differences.versionDifferent.relativePath) | Should -Be @('Data/Skyrim.synthetic.txt')
@@ -118,7 +117,7 @@ Describe 'setup-laptop safe bootstrap' {
         $first | Should -BeExactly $second
         $plan.schema | Should -Be 'skyrim-engineering.laptop-plan/v1'
         @($plan.actions.type) | Should -Contain 'createProfile'
-        @($plan.actions.type) | Should -Contain 'installApprovedZipEntry'
+        @($plan.actions.type) | Should -Contain 'installApproved7zEntry'
         Test-Path -LiteralPath (Join-Path $profileRoot 'Anniversary Together') | Should -BeFalse
         (Get-FileHash -LiteralPath (Join-Path $profileRoot 'Existing\profile.txt')).Hash | Should -Be $before
     }
@@ -159,8 +158,8 @@ Describe 'setup-laptop safe bootstrap' {
         $verify.schema | Should -Be 'skyrim-engineering.laptop-audit/v1'
         $verify.mode | Should -Be 'verify'
         $verify.domains.skse.status | Should -Be 'exact'
-        $verify.domains.addressLibrary.status | Should -Be 'exact'
-        $verify.domains.skyrimTogether.status | Should -Be 'exact'
+        $verify.domains.addressLibrary.status | Should -Be 'unsupportedPendingIntake'
+        $verify.domains.skyrimTogether.status | Should -Be 'unsupportedPendingIntake'
         @($verify.differences.missing.relativePath | Where-Object { $_ -like 'mods/*' }) | Should -BeNullOrEmpty
         @($verify.differences.hashDifferent.relativePath | Where-Object { $_ -like 'mods/*' }) | Should -BeNullOrEmpty
     }
@@ -229,8 +228,9 @@ Describe 'setup-laptop safe bootstrap' {
         @($audit.domains.PSObject.Properties.Name) | Should -Be @(
             'runtime', 'creations', 'plugins', 'archives', 'skse', 'addressLibrary', 'skyrimTogether', 'modManager', 'profiles', 'loadOrder'
         )
-        $audit.domains.runtime.actualVersion | Should -Be '1.6.1170.0'
-        $audit.domains.modManager.actualVersion | Should -Be '2.5.2'
+        $audit.domains.runtime.status | Should -Be 'missing'
+        $audit.domains.runtime.actualVersion | Should -BeNullOrEmpty
+        $audit.domains.modManager.status | Should -Be 'unavailable'
     }
 
     It 'derives runtime plugin archive and tool inventory from the explicit roots rather than sidecar claims' {
@@ -248,6 +248,47 @@ Describe 'setup-laptop safe bootstrap' {
         @($audit.domains.archives.items).Count | Should -Be 1
         $audit.domains.plugins.items[0].sha256 | Should -Match '^[0-9a-f]{64}$'
         $audit.domains.archives.items[0].sha256 | Should -Match '^[0-9a-f]{64}$'
+    }
+
+    It 'discovers mod manager profiles creations and components from explicit real roots without metadata sidecars' {
+        Copy-Item -LiteralPath (Get-Command pwsh).Source -Destination (Join-Path $toolRoot 'ModOrganizer.exe')
+        New-Item -ItemType Directory -Path (Join-Path $profileRoot 'Profile One'), (Join-Path $gameRoot 'Data') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $gameRoot 'Data\Creation.esm') -Value 'creation' -NoNewline
+        Set-Content -LiteralPath (Join-Path $profileRoot 'Profile One\NotInstalled.esp') -Value 'profile metadata' -NoNewline
+
+        $audit = (Invoke-LaptopSetup -Mode AuditOnly -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot -ToolRoot $toolRoot) | ConvertFrom-Json
+
+        $audit.domains.modManager.status | Should -Be 'observed'
+        $audit.domains.modManager.executable.sha256 | Should -Match '^[0-9a-f]{64}$'
+        @($audit.domains.profiles.items).Count | Should -Be 1
+        @($audit.domains.creations.items).Count | Should -Be 1
+        @($audit.domains.plugins.items).Count | Should -Be 1
+        $audit.domains.addressLibrary.status | Should -Be 'unsupportedPendingIntake'
+        $audit.domains.skyrimTogether.status | Should -Be 'unsupportedPendingIntake'
+    }
+
+    It 'installs only the hash-pinned official SKSE 2.2.6 7z payload into an atomic isolated profile' {
+        $officialSkseArchive | Should -Exist
+        $sevenZip | Should -Exist
+        $state = (Invoke-LaptopSetup -Mode Apply -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot -ConfirmApply) | ConvertFrom-Json
+        $profile = Join-Path $profileRoot 'Anniversary Together'
+
+        $state.operation | Should -Be 'approved7zInstall'
+        (Get-FileHash -LiteralPath (Join-Path $profile 'mods\SKSE\skse64_loader.exe') -Algorithm SHA256).Hash.ToLowerInvariant() |
+            Should -Be '730c2743f6871fbaeb8606c1d3b7a55feca045c3d74858a41b0c6d03cd989fbc'
+        (Get-FileHash -LiteralPath (Join-Path $profile 'mods\SKSE\skse64_1_6_1170.dll') -Algorithm SHA256).Hash.ToLowerInvariant() |
+            Should -Be 'c9a2c8a80df6bf2372c5f49468bb2e5ab67786157265b6f29ece9f4eac075d54'
+        @(Get-ChildItem -LiteralPath $profile -Force | Where-Object Name -like '.skyrim-engineering-stage-*').Count | Should -Be 0
+    }
+
+    It 'recovers journal-owned staging after interruption at every transaction boundary' -ForEach @(
+        'journalCreated', 'stageCreated', 'payloadExtracted', 'payloadVerified', 'profilePublished'
+    ) {
+        { Invoke-LaptopSetup -Mode Apply -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot -ConfirmApply -InterruptAfter $_ } |
+            Should -Throw '*simulated interruption*'
+        { Invoke-LaptopSetup -Mode Rollback -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot } | Should -Not -Throw
+        Test-Path -LiteralPath (Join-Path $profileRoot 'Anniversary Together') | Should -BeFalse
+        @(Get-ChildItem -LiteralPath $profileRoot -Force | Where-Object Name -like '.skyrim-engineering-stage-*').Count | Should -Be 0
     }
 
     It 'classifies path matches with bad evidence as unknown and reports root-qualified expected and actual values' {
@@ -296,7 +337,7 @@ Describe 'setup-laptop safe bootstrap' {
 
     It 'never removes unrelated files placed at predictable temporary journal names' {
         Invoke-LaptopSetup -Mode Apply -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot -ConfirmApply | Out-Null
-        $unownedPayload = Join-Path $stateRoot '.client-a.skse-2-2-6.payload.tmp'
+        $unownedPayload = Join-Path $stateRoot '.client-a.skse-ae-2-2-6-official.payload.tmp'
         $unownedNext = Join-Path $stateRoot 'client-a.state.json.next'
         Set-Content -LiteralPath $unownedPayload -Value 'unowned' -NoNewline
         Set-Content -LiteralPath $unownedNext -Value 'unowned' -NoNewline
@@ -318,33 +359,22 @@ Describe 'setup-laptop safe bootstrap' {
     }
 
     It 'refuses missing mismatched and unsupported local package archives before profile mutation' {
-        Remove-Item -LiteralPath (Join-Path $packageCache 'skse-2.2.6.zip')
+        Remove-Item -LiteralPath (Join-Path $packageCache 'skse64_2_02_06.7z')
         { Invoke-LaptopSetup -Mode Apply -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot -ConfirmApply } |
             Should -Throw '*package cache*missing*'
         Test-Path -LiteralPath (Join-Path $profileRoot 'Anniversary Together') | Should -BeFalse
 
-        [IO.File]::WriteAllBytes((Join-Path $packageCache 'skse-2.2.6.zip'), [byte[]](1,2,3))
+        [IO.File]::WriteAllBytes((Join-Path $packageCache 'skse64_2_02_06.7z'), [byte[]](1,2,3))
         { Invoke-LaptopSetup -Mode Apply -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot -ConfirmApply } |
             Should -Throw '*pinned archive hash*'
         Test-Path -LiteralPath (Join-Path $profileRoot 'Anniversary Together') | Should -BeFalse
     }
 
-    It 'rejects traversal entries and unsupported archive types without writing outside the destination' {
-        $malicious = Join-Path $packageCache 'malicious.zip'
-        $archiveStream = [IO.File]::Open($malicious, [IO.FileMode]::CreateNew)
-        $archive = New-Object IO.Compression.ZipArchive($archiveStream, [IO.Compression.ZipArchiveMode]::Create, $false)
-        try {
-            $entry = $archive.CreateEntry('../escape.exe')
-            $writer = New-Object IO.StreamWriter($entry.Open())
-            try { $writer.Write('escape') } finally { $writer.Dispose() }
-        }
-        finally { $archive.Dispose(); $archiveStream.Dispose() }
-        $package = [pscustomobject]@{ entryRelativePath = '../escape.exe'; sha256 = ('0' * 64) }
-        { Write-ApprovedZipEntry $package $malicious (Join-Path $profileRoot 'payload.exe') } | Should -Throw '*safe relative path*'
-        Test-Path -LiteralPath (Join-Path $caseRoot 'escape.exe') | Should -BeFalse
-
+    It 'rejects traversal mappings and unsupported archive types without writing outside the destination' {
+        { Assert-SafeRelativePath '../escape.exe' } | Should -Throw '*safe relative path*'
         $unsupported = [pscustomobject]@{ archiveType = '7z' }
-        { Assert-SourcePackage $unsupported $packageCache } | Should -Throw '*Unsupported archive type*only ZIP*'
+        $unsupported.archiveType = 'zip'
+        { Assert-SourcePackage $unsupported $packageCache } | Should -Throw '*Unsupported archive type*only 7z*'
     }
 
     It 'refuses relative overlapping and ancestor-reparse explicit roots' {

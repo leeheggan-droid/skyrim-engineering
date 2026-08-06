@@ -77,8 +77,8 @@
                   },
                   {
                       "path":  "tests/Expertise.Tests.ps1",
-                      "bytes":  11918,
-                      "sha256":  "510C2A421FC3DEBAB22F2521C552817E672918FBE1913218024D5C180A69C09B"
+                      "bytes":  13115,
+                      "sha256":  "4DA82F9688A6F409D986D136E49CD0CA453BE285C82BFB6B227524973BE508FF"
                   },
                   {
                       "path":  "tests/QualificationState.Tests.ps1",
@@ -157,8 +157,8 @@
                   },
                   {
                       "path":  "tests/fixtures/package/Test-EvidenceManifest.ps1",
-                      "bytes":  3879,
-                      "sha256":  "9E7732639CE47A89CDCBE12E8255A8A4744AF60C29A943868F8EF328459DEA42"
+                      "bytes":  4542,
+                      "sha256":  "58DEDEAB618D473FC762348DC6EA395162E0998875C0DF648E444E2004E319D6"
                   },
                   {
                       "path":  "tests/fixtures/papyrus/Prepare-RuntimeMigration.ps1",

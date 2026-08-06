@@ -8,9 +8,9 @@ Every invocation requires explicit game, profile, canonical-manifest, and state 
 
 The canonical manifest separates the licensed `anniversaryBaseline` from `approvedShared` entries. Package policy does not come from that caller-supplied manifest: each shared entry must exactly match the repository-controlled `laptop-package-catalog.json`, including component, version, hash, source, destination, publisher, provenance, licence, and package type. Existing profile content is projected through opaque identifiers; mismatched known paths and unexpected isolated-profile content are `unknownOrIncompatible`.
 
-Apply is a ZIP-only installer for the approved free SKSE, Address Library, and Skyrim Together component set. The user or Codex must first obtain each package from the catalogued publisher URL and place it, under the exact catalogued filename, in an explicit local `PackageCache`. The immutable repository catalog pins archive type and SHA-256, the one allowed entry and its SHA-256, destination, version, publisher, provenance URL, and licence. Missing, mismatched, unknown, multi-entry, traversal, directory, and reparse/symbolic-link archives are refused. The script never downloads, authenticates, executes payloads, changes firewall rules, or handles saves or Bethesda content.
+Apply currently installs only the officially qualified SKSE AE 2.2.6 package for Skyrim 1.6.1170. Address Library and Skyrim Together are explicitly `unsupportedPendingIntake`; they cannot be installed until real user-supplied packages complete independent intake. The user or Codex must place the official `skse64_2_02_06.7z` from `https://skse.silverlock.org/beta/skse64_2_02_06.7z` in an explicit local `PackageCache`. The immutable catalog pins its 751,136-byte SHA-256, 551-entry layout, exact loader/runtime-DLL mappings and hashes, publisher URL/licence, plus the approved 7-Zip executable version and hash. The script never downloads, authenticates, executes extracted payloads, changes firewall rules, or handles saves or Bethesda content.
 
-`Apply` refuses any pre-existing `Anniversary Together` directory rather than merging into it. After confirmation it revalidates package hashes and filesystem boundaries, creates destinations exclusively, verifies staged and destination bytes, and retains an atomically updated recoverable journal. It does not perform live downloads.
+`Apply` refuses any pre-existing `Anniversary Together` directory rather than merging into it. After confirmation it records a random transaction/ownership identity, extracts only mapped entries into a fresh same-volume staging directory, verifies physical ancestors plus exact sizes/hashes, and atomically renames the complete profile into place. Rollback removes a partial staging tree only when its random ownership marker matches the journal; final-profile rollback remains file/hash allowlisted. Parent paths are revalidated immediately before each create or move. Windows path APIs do not provide this script with handle-relative rename, so a malicious administrator able to swap a parent in the final instructions can still race the last path lookup; exclusive creation, same-volume atomic rename, repeated reparse checks, and ownership validation reduce but cannot eliminate that OS-level residual.
 
 Reports distinguish `missing`, `extra`, `hashDifferent`, `versionDifferent`, and `orderDifferent`, with expected and actual evidence for known canonical paths. Unknown discovered names and untrusted metadata are never emitted; public output uses opaque identifiers. Runtime, Creation, plugin, archive, SKSE, Address Library, Skyrim Together, mod-manager, profile, and load-order domains are reported separately. Resolve baseline differences through the owning licensed installer or explicit manual review; do not use this workflow to replace Bethesda files.
 
@@ -25,6 +25,7 @@ $profiles = 'C:\explicit\ModManager\Profiles'
 $canonical = 'C:\explicit\approved-baseline\manifest.json'
 $state = 'C:\explicit\SkyrimEngineeringState'
 $packageCache = 'C:\explicit\SkyrimEngineeringPackageCache'
+$tools = 'C:\explicit\ModManager'
 $setup = Join-Path $repo 'skill\skyrim-engineering\scripts\setup-laptop.ps1'
 ```
 
@@ -33,7 +34,7 @@ First, audit without mutation:
 ```powershell
 pwsh -NoProfile -File $setup -AuditOnly -ClientId client-a `
   -GameRoot $game -ProfileRoot $profiles `
-  -CanonicalManifest $canonical -StateDirectory $state
+  -CanonicalManifest $canonical -StateDirectory $state -ToolRoot $tools
 ```
 
 Then inspect the deterministic proposed actions:

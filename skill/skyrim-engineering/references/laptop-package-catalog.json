@@ -1,59 +1,50 @@
 {
   "schema": "skyrim-engineering.package-catalog/v1",
   "policy": {
-    "operation": "approvedZipInstall",
-    "allowedArchiveTypes": ["zip"],
+    "operation": "approved7zInstall",
+    "allowedArchiveTypes": ["7z"],
     "networkAccess": false,
-    "executePayloads": false
+    "executePayloads": false,
+    "archiveTool": {
+      "fileName": "7z.exe",
+      "version": "26.02",
+      "sha256": "83967f1b02b43c4efeda302795722c809e0e81b8307de73558d10484d5676a7d"
+    }
   },
+  "unsupportedComponents": [
+    { "component": "addressLibrary", "status": "unsupportedPendingIntake" },
+    { "component": "skyrimTogether", "status": "unsupportedPendingIntake" }
+  ],
   "packages": [
     {
-      "catalogId": "address-library-11",
-      "component": "addressLibrary",
-      "version": "11",
-      "archiveFileName": "address-library-11.zip",
-      "archiveType": "zip",
-      "archiveSha256": "7698a5e4bc76b8ac942fbdf4a25c2895db660a7dbb8c663a0b1f43894b5493df",
-      "entryRelativePath": "versionlib-1-6-1170-0.bin",
-      "destinationRelativePath": "mods/Address Library/versionlib-1-6-1170-0.bin",
-      "sha256": "ad7dbd4c840442da35dba1cdae2eceaaa82d4f993525aa15321cc1b573cbda2e",
-      "publisher": "meh321",
-      "provenanceUrl": "https://www.nexusmods.com/skyrimspecialedition/mods/32444",
-      "license": "free-distribution-package; verify upstream terms",
-      "approved": true,
-      "free": true
-    },
-    {
-      "catalogId": "skse-2-2-6",
+      "catalogId": "skse-ae-2-2-6-official",
       "component": "skse",
       "version": "2.2.6",
-      "archiveFileName": "skse-2.2.6.zip",
-      "archiveType": "zip",
-      "archiveSha256": "ac92dd08296b0be4d0aea95f6490150a42394493dda7d43d3ab664178f9665be",
-      "entryRelativePath": "skse64_loader.exe",
-      "destinationRelativePath": "mods/SKSE/skse64_loader.exe",
-      "sha256": "a37fe2a2380459ead548295f87f3969d98624add0599f6baebf222548ba31ccf",
+      "gameRuntimeVersion": "1.6.1170.0",
+      "archiveFileName": "skse64_2_02_06.7z",
+      "archiveType": "7z",
+      "archiveBytes": 751136,
+      "archiveEntryCount": 551,
+      "archiveSha256": "d7297f1a1d613e5265e1af4dbbfe8bd37a32719c1ccef363fc6187fa6eba0848",
       "publisher": "SKSE Team",
-      "provenanceUrl": "https://skse.silverlock.org/",
-      "license": "free-distribution-package; verify upstream terms",
+      "provenanceUrl": "https://skse.silverlock.org/beta/skse64_2_02_06.7z",
+      "license": "SKSE custom non-commercial licence",
       "approved": true,
-      "free": true
-    },
-    {
-      "catalogId": "skyrim-together-1-7-1",
-      "component": "skyrimTogether",
-      "version": "1.7.1",
-      "archiveFileName": "skyrim-together-1.7.1.zip",
-      "archiveType": "zip",
-      "archiveSha256": "8158c474c77663a62f857ce8dd3a00dfd032d30b847f7af3f259041a2041c2a4",
-      "entryRelativePath": "SkyrimTogether.exe",
-      "destinationRelativePath": "mods/Skyrim Together/SkyrimTogether.exe",
-      "sha256": "929fd46267dee1b3cb1e215f72517245467b2872b3798244c911d0e9d4affc4a",
-      "publisher": "Tilted Phoques",
-      "provenanceUrl": "https://github.com/tiltedphoques/TiltedEvolution/releases/tag/v1.7.1",
-      "license": "GPL-3.0-only",
-      "approved": true,
-      "free": true
+      "free": true,
+      "mappings": [
+        {
+          "archivePath": "skse64_2_02_06/skse64_1_6_1170.dll",
+          "destinationRelativePath": "mods/SKSE/skse64_1_6_1170.dll",
+          "bytes": 1173504,
+          "sha256": "c9a2c8a80df6bf2372c5f49468bb2e5ab67786157265b6f29ece9f4eac075d54"
+        },
+        {
+          "archivePath": "skse64_2_02_06/skse64_loader.exe",
+          "destinationRelativePath": "mods/SKSE/skse64_loader.exe",
+          "bytes": 225792,
+          "sha256": "730c2743f6871fbaeb8606c1d3b7a55feca045c3d74858a41b0c6d03cd989fbc"
+        }
+      ]
     }
   ]
 }

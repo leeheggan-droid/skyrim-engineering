@@ -29,8 +29,17 @@ $allowedExclusions = @('tests/fixtures/evidence/artifacts.json', 'tests/fixtures
 if (@($m.excludedControlFiles).Count -ne $allowedExclusions.Count -or @(Compare-Object @($m.excludedControlFiles) $allowedExclusions -CaseSensitive).Count) {
     throw 'Only the two self-referential control manifests may be excluded'
 }
+$requiredScopeRoots = @(
+    'LICENSE', 'docs/expertise', 'tests/Expertise.Tests.ps1', 'tests/QualificationState.Tests.ps1',
+    'tests/fixtures/ck', 'tests/fixtures/data-model', 'tests/fixtures/diagnostics', 'tests/fixtures/evidence',
+    'tests/fixtures/intake', 'tests/fixtures/package', 'tests/fixtures/papyrus', 'tests/fixtures/preparation',
+    'tests/fixtures/runtime', 'tests/fixtures/together', 'tests/fixtures/xedit'
+)
+if (@($m.scopeRoots).Count -ne $requiredScopeRoots.Count -or @(Compare-Object @($m.scopeRoots) $requiredScopeRoots -CaseSensitive).Count) {
+    throw 'Release scope roots do not match independently governed qualification policy'
+}
 $discovered = New-Object Collections.ArrayList
-foreach ($scope in @($m.scopeRoots)) {
+foreach ($scope in $requiredScopeRoots) {
     if ([string]::IsNullOrWhiteSpace($scope) -or [IO.Path]::IsPathRooted($scope) -or $scope.Contains('\') -or $scope.Contains(':') -or $scope -match '(^|/)\.\.?(?:/|$)') {
         throw 'Release scope roots must be safe repository-relative paths'
     }
