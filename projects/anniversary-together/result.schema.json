@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://skyrim-engineering.example/schemas/anniversary-together-result-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "testId", "status", "clients", "evidence"],
+  "properties": {
+    "schema": {"const": "skyrim-engineering.anniversary-together.result/v1"},
+    "testId": {"type": "string", "pattern": "^(CONTROL|SYNC|AE)-[0-9]{3}$"},
+    "status": {"enum": ["pass", "partial", "host-only", "desync", "crash", "blocked", "untested"]},
+    "clients": {"type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true, "items": {"$ref": "#/$defs/publicClientId"}},
+    "evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^(diagnostic-manifest\\.json|[a-z0-9-]+\\.(log|json))$"}}
+  },
+  "$defs": {
+    "publicClientId": {"enum": ["client-a", "client-b", "client-c"]}
+  }
+}

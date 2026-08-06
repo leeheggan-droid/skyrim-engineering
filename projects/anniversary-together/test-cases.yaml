@@ -1,0 +1,97 @@
+schema: skyrim-engineering.anniversary-together.cases/v1
+privateClientSlots:
+  - slot-1
+  - slot-2
+  - slot-3
+cases:
+  - id: CONTROL-001
+    checkpoint: clean-stock-launch
+    preconditions: [clean stock profile, no paid upgrade]
+    steps: [launch Steam Skyrim Special Edition to main menu]
+    expected: [main menu loads without crash]
+    evidence: [diagnostic-manifest.json, Skyrim.log]
+    cleanup: [exit to desktop, retain clean-stock-launch checkpoint]
+  - id: CONTROL-002
+    checkpoint: clean-local-connect
+    preconditions: [clean stock profile, local host server available]
+    steps: [connect client-a to local host server]
+    expected: [client-a reaches the shared session]
+    evidence: [diagnostic-manifest.json, together.log]
+    cleanup: [disconnect client-a, retain clean-local-connect checkpoint]
+  - id: SYNC-001
+    checkpoint: party-formed
+    preconditions: [all clients connected with identical profiles]
+    steps: [host creates party, client-a and client-b join]
+    expected: [all clients display the same party roster]
+    evidence: [diagnostic-manifest.json, together.log]
+    cleanup: [disband party, retain party-formed checkpoint]
+  - id: SYNC-002
+    checkpoint: inventory-before-transfer
+    preconditions: [party formed, one mundane item available]
+    steps: [client-a transfers item through host-visible inventory flow]
+    expected: [host and clients converge on item ownership]
+    evidence: [diagnostic-manifest.json, inventory.log]
+    cleanup: [restore item owner, retain inventory-before-transfer checkpoint]
+  - id: SYNC-003
+    checkpoint: combat-before-engagement
+    preconditions: [party formed, isolated hostile available]
+    steps: [all clients engage hostile within proximity]
+    expected: [host authority and combat outcome converge]
+    evidence: [diagnostic-manifest.json, combat.log]
+    cleanup: [return to combat-before-engagement checkpoint]
+  - id: SYNC-004
+    checkpoint: quest-before-stage
+    preconditions: [party formed, reversible quest stage available]
+    steps: [client-a proposes quest stage action and host commits it]
+    expected: [quest stage converges after host commit]
+    evidence: [diagnostic-manifest.json, quest.log]
+    cleanup: [restore quest-before-stage checkpoint]
+  - id: SYNC-005
+    checkpoint: horse-before-mount
+    preconditions: [party formed, one horse available]
+    steps: [client-a mounts then dismounts horse]
+    expected: [mount state converges without duplicate horse]
+    evidence: [diagnostic-manifest.json, mount.log]
+    cleanup: [dismount all clients, retain horse-before-mount checkpoint]
+  - id: SYNC-006
+    checkpoint: pet-before-command
+    preconditions: [party formed, one pet command target available]
+    steps: [client-a issues a pet command]
+    expected: [pet state converges after host acknowledgement]
+    evidence: [diagnostic-manifest.json, pet.log]
+    cleanup: [reset pet command state, retain pet-before-command checkpoint]
+  - id: SYNC-007
+    checkpoint: home-before-entry
+    preconditions: [party formed, home and container available]
+    steps: [client-a enters home and opens container]
+    expected: [home transition and container state converge]
+    evidence: [diagnostic-manifest.json, home.log]
+    cleanup: [leave home, restore home-before-entry checkpoint]
+  - id: AE-001
+    checkpoint: survival-before-toggle
+    preconditions: [party formed, bundled Survival Mode enabled]
+    steps: [all clients travel and rest within the same cell]
+    expected: [Survival Mode state remains converged]
+    evidence: [diagnostic-manifest.json, survival.log]
+    cleanup: [restore survival-before-toggle checkpoint]
+  - id: SYNC-008
+    checkpoint: death-before-test
+    preconditions: [party formed, safe death test area available]
+    steps: [client-a dies and respawns]
+    expected: [respawn state converges without party loss]
+    evidence: [diagnostic-manifest.json, death.log]
+    cleanup: [return to death-before-test checkpoint]
+  - id: SYNC-009
+    checkpoint: reconnect-before-disconnect
+    preconditions: [party formed, stable shared state]
+    steps: [disconnect client-b, advance host state, reconnect client-b]
+    expected: [full snapshot restores convergence]
+    evidence: [diagnostic-manifest.json, reconnect.log]
+    cleanup: [confirm all clients connected, retain reconnect-before-disconnect checkpoint]
+  - id: SYNC-010
+    checkpoint: save-before-continuity
+    preconditions: [party formed, all clients converged]
+    steps: [host saves, all clients reload cleanly]
+    expected: [state remains converged after save continuity test]
+    evidence: [diagnostic-manifest.json, save.log]
+    cleanup: [retain only save-before-continuity checkpoint]
