@@ -37,26 +37,27 @@ function Get-NormalizedPath {
     return [IO.Path]::GetFullPath($Path).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
 }
 
-function Get-RequiredProperty {
-    param($InputObject, [string]$Name)
-    $property = $InputObject.PSObject.Properties[$Name]
-    if ($null -eq $property) {
-        throw "Canonical manifest is missing required property '$Name'."
+function Assert-FullyQualifiedLocalPath {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    if ($Path -cnotmatch '^[A-Za-z]:[\\/]' -or $Path -match '^\\\\') {
+        throw 'Every root and manifest path must be a fully qualified local path.'
     }
-    return $property.Value
 }
 
-function Assert-SafeRelativePath {
+function Assert-NoReparseAncestor {
     param([Parameter(Mandatory = $true)][string]$Path)
-    if ([string]::IsNullOrWhiteSpace($Path) -or [IO.Path]::IsPathRooted($Path) -or
-        $Path.Contains('\') -or $Path.Contains(':') -or $Path.StartsWith('/') -or
-        $Path -match '(?i)(^|/)(\.\.?)(/|$)' -or $Path -match '(?i)(password|credential|secret|token|steamid)') {
-        throw 'Manifest paths must be safe relative paths without secrets or personal locations.'
-    }
-    foreach ($segment in @($Path -split '/')) {
-        if ([string]::IsNullOrWhiteSpace($segment)) {
-            throw 'Manifest paths must be safe relative paths without empty segments.'
+    $current = Get-NormalizedPath -Path $Path
+    if (-not (Test-Path -LiteralPath $current)) { $current = Split-Path -Parent $current }
+    while (-not [string]::IsNullOrWhiteSpace($current)) {
+        if (Test-Path -LiteralPath $current) {
+            $item = Get-Item -LiteralPath $current -Force
+            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw 'A reparse-point ancestor was refused.'
+            }
         }
+        $parent = Split-Path -Parent $current
+        if ([string]::IsNullOrEmpty($parent) -or $parent -eq $current) { break }
+        $current = $parent
     }
 }
 
@@ -64,29 +65,61 @@ function Assert-ContainedPath {
     param([string]$Root, [string]$Candidate)
     $rootPath = Get-NormalizedPath -Path $Root
     $candidatePath = Get-NormalizedPath -Path $Candidate
-    $prefix = $rootPath + [IO.Path]::DirectorySeparatorChar
-    if (-not $candidatePath.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+    if (-not $candidatePath.StartsWith($rootPath + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
         throw 'Resolved path escapes its explicit root.'
     }
 }
 
-function Assert-NoReparsePoint {
-    param([string]$Root, [string]$Candidate)
-    Assert-ContainedPath -Root $Root -Candidate $Candidate
-    $rootPath = Get-NormalizedPath -Path $Root
-    $candidatePath = Get-NormalizedPath -Path $Candidate
-    $relative = $candidatePath.Substring($rootPath.Length).TrimStart([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
-    $current = $rootPath
-    foreach ($segment in @($relative -split '[\\/]')) {
-        if ([string]::IsNullOrEmpty($segment)) { continue }
-        $current = Join-Path $current $segment
-        if (Test-Path -LiteralPath $current) {
-            $item = Get-Item -LiteralPath $current -Force
-            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-                throw 'A path boundary contains a reparse point and was refused.'
+function Assert-DisjointRoots {
+    param([string[]]$Roots)
+    for ($left = 0; $left -lt $Roots.Count; $left++) {
+        for ($right = $left + 1; $right -lt $Roots.Count; $right++) {
+            $a = $Roots[$left]
+            $b = $Roots[$right]
+            if ([string]::Equals($a, $b, [StringComparison]::OrdinalIgnoreCase) -or
+                $a.StartsWith($b + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or
+                $b.StartsWith($a + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+                throw 'GameRoot, ProfileRoot, and StateDirectory must not overlap.'
             }
         }
     }
+}
+
+function Assert-SafeRelativePath {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    if ([string]::IsNullOrWhiteSpace($Path) -or [IO.Path]::IsPathRooted($Path) -or
+        $Path.Contains('\') -or $Path.Contains(':') -or $Path.StartsWith('/') -or
+        $Path -match '(^|/)(\.\.?)(/|$)') {
+        throw 'A safe relative path is required.'
+    }
+    foreach ($segment in @($Path -split '/')) {
+        if ([string]::IsNullOrWhiteSpace($segment)) { throw 'A safe relative path is required.' }
+    }
+}
+
+function Assert-SafeVersion {
+    param([Parameter(Mandatory = $true)][string]$Value)
+    if ($Value -cnotmatch '^[0-9][0-9A-Za-z._+-]{0,63}$') { throw 'Version metadata is not public-safe.' }
+}
+
+function Get-RequiredProperty {
+    param($InputObject, [string]$Name, [string]$Context = 'document')
+    $property = $InputObject.PSObject.Properties[$Name]
+    if ($null -eq $property) { throw "$Context is missing required property '$Name'." }
+    return $property.Value
+}
+
+function Get-LowerHash {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+function Get-OpaqueId {
+    param([string]$Text)
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    try { $bytes = $algorithm.ComputeHash([Text.Encoding]::UTF8.GetBytes($Text)) }
+    finally { $algorithm.Dispose() }
+    return 'opaque-' + (($bytes | ForEach-Object { $_.ToString('x2') }) -join '').Substring(0, 24)
 }
 
 function Convert-ToPortablePath {
@@ -94,64 +127,90 @@ function Convert-ToPortablePath {
     return $Path.Replace('\', '/')
 }
 
-function New-Difference {
-    param([string]$RelativePath)
-    return [pscustomobject][ordered]@{ relativePath = $RelativePath }
+function Convert-ToPublicVersion {
+    param($Value)
+    if ($null -eq $Value) { return $null }
+    $text = [string]$Value
+    if ($text -cmatch '^[0-9][0-9A-Za-z._+-]{0,63}$') { return $text }
+    return 'redacted'
+}
+
+function Read-JsonFile {
+    param([string]$Path, [string]$Label)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "$Label must be an existing file." }
+    Assert-NoReparseAncestor -Path $Path
+    try { return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw "$Label is not valid JSON." }
+}
+
+function Read-PackageCatalog {
+    param([string]$Path)
+    $catalog = Read-JsonFile -Path $Path -Label 'Trusted package catalog'
+    if ((Get-RequiredProperty $catalog 'schema' 'Trusted package catalog') -cne 'skyrim-engineering.package-catalog/v1') {
+        throw 'Trusted package catalog schema is unsupported.'
+    }
+    $policy = Get-RequiredProperty $catalog 'policy' 'Trusted package catalog'
+    if ($policy.operation -cne 'stagedFileScaffold' -or $policy.archivesSupported -ne $false -or $policy.executablesSupported -ne $false) {
+        throw 'Trusted package catalog policy must remain the non-executable staged-file scaffold.'
+    }
+    $map = @{}
+    foreach ($package in @(Get-RequiredProperty $catalog 'packages' 'Trusted package catalog')) {
+        foreach ($name in @('catalogId', 'component', 'version', 'sha256', 'sourceRelativePath', 'destinationRelativePath', 'packageType', 'publisher', 'provenance', 'license', 'approved', 'free')) {
+            [void](Get-RequiredProperty $package $name 'Trusted package entry')
+        }
+        if ($package.catalogId -cnotmatch '^[a-z0-9][a-z0-9-]*$' -or $map.ContainsKey([string]$package.catalogId)) {
+            throw 'Trusted package catalog ids must be unique anonymous identifiers.'
+        }
+        if ($package.component -cnotin @('skse', 'addressLibrary', 'skyrimTogether')) { throw 'Trusted package component is unsupported.' }
+        Assert-SafeVersion -Value ([string]$package.version)
+        Assert-SafeRelativePath -Path ([string]$package.sourceRelativePath)
+        Assert-SafeRelativePath -Path ([string]$package.destinationRelativePath)
+        if ($package.sha256 -cnotmatch '^[0-9a-f]{64}$' -or $package.packageType -cne 'stagedTextFixture' -or
+            [IO.Path]::GetExtension([string]$package.sourceRelativePath) -cne '.txt' -or
+            [IO.Path]::GetExtension([string]$package.destinationRelativePath) -cne '.txt' -or
+            $package.approved -ne $true -or $package.free -ne $true -or
+            [string]::IsNullOrWhiteSpace([string]$package.publisher) -or
+            [string]::IsNullOrWhiteSpace([string]$package.provenance) -or
+            [string]::IsNullOrWhiteSpace([string]$package.license)) {
+            throw 'Trusted package catalog entry violates provenance or staged-file policy.'
+        }
+        $map[[string]$package.catalogId] = $package
+    }
+    return [pscustomobject]@{ document = $catalog; byId = $map; sha256 = Get-LowerHash -Path $Path }
 }
 
 function Read-CanonicalManifest {
-    param([string]$Path)
-    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
-        throw 'CanonicalManifest must be an existing file.'
-    }
-    try {
-        $manifest = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -ErrorAction Stop
-    }
-    catch {
-        throw 'CanonicalManifest is not valid JSON.'
-    }
-    if ((Get-RequiredProperty -InputObject $manifest -Name 'schema') -cne 'skyrim-engineering.laptop-canonical/v1') {
+    param([string]$Path, $Catalog)
+    $manifest = Read-JsonFile -Path $Path -Label 'CanonicalManifest'
+    if ((Get-RequiredProperty $manifest 'schema' 'CanonicalManifest') -cne 'skyrim-engineering.laptop-canonical/v1') {
         throw 'CanonicalManifest schema must be skyrim-engineering.laptop-canonical/v1.'
     }
-    [void](Get-RequiredProperty -InputObject $manifest -Name 'runtimeVersion')
-    $items = @(Get-RequiredProperty -InputObject $manifest -Name 'items')
-    $loadOrder = @(Get-RequiredProperty -InputObject $manifest -Name 'loadOrder')
+    Assert-SafeVersion -Value ([string](Get-RequiredProperty $manifest 'runtimeVersion' 'CanonicalManifest'))
+    $items = @(Get-RequiredProperty $manifest 'items' 'CanonicalManifest')
+    $loadOrder = @(Get-RequiredProperty $manifest 'loadOrder' 'CanonicalManifest')
     $seen = @{}
     foreach ($item in $items) {
-        foreach ($name in @('id', 'category', 'root', 'relativePath', 'sha256', 'version')) {
-            [void](Get-RequiredProperty -InputObject $item -Name $name)
-        }
-        if ([string]$item.id -cnotmatch '^[a-z0-9][a-z0-9-]*$') {
-            throw 'Canonical item ids must be anonymous lowercase identifiers.'
-        }
-        if ([string]$item.category -cnotin @('anniversaryBaseline', 'approvedShared')) {
-            throw 'Canonical item category is not approved.'
-        }
-        if ([string]$item.root -cnotin @('game', 'profile')) {
-            throw 'Canonical item root must be game or profile.'
+        foreach ($name in @('id', 'category', 'root', 'relativePath', 'sha256', 'version')) { [void](Get-RequiredProperty $item $name 'Canonical item') }
+        if ($item.id -cnotmatch '^[a-z0-9][a-z0-9-]*$' -or $item.category -cnotin @('anniversaryBaseline', 'approvedShared') -or
+            $item.root -cnotin @('game', 'profile') -or $item.sha256 -cnotmatch '^[0-9a-f]{64}$') {
+            throw 'Canonical item metadata is invalid.'
         }
         Assert-SafeRelativePath -Path ([string]$item.relativePath)
-        if ([string]$item.sha256 -cnotmatch '^[0-9a-f]{64}$') {
-            throw 'Canonical item SHA-256 must be pinned lowercase hexadecimal.'
-        }
-        if ([string]::IsNullOrWhiteSpace([string]$item.version)) {
-            throw 'Canonical item version must be pinned.'
-        }
+        Assert-SafeVersion -Value ([string]$item.version)
         $key = ('{0}|{1}' -f $item.root, $item.relativePath).ToLowerInvariant()
-        if ($seen.ContainsKey($key)) {
-            throw 'Canonical manifest contains a duplicate item path.'
-        }
+        if ($seen.ContainsKey($key)) { throw 'Canonical manifest contains a duplicate item path.' }
         $seen[$key] = $true
         if ($item.category -eq 'approvedShared') {
-            $approved = Get-RequiredProperty -InputObject $item -Name 'approved'
-            $free = Get-RequiredProperty -InputObject $item -Name 'free'
-            $sourceRelativePath = [string](Get-RequiredProperty -InputObject $item -Name 'sourceRelativePath')
-            if ($approved -isnot [bool] -or -not $approved -or $free -isnot [bool] -or -not $free) {
-                throw 'Only explicitly approved free packages are permitted.'
+            if ($null -ne $item.PSObject.Properties['sourceRelativePath']) {
+                Assert-SafeRelativePath -Path ([string]$item.sourceRelativePath)
+                throw 'Package source authorization must come from the trusted catalog.'
             }
-            Assert-SafeRelativePath -Path $sourceRelativePath
-            if ($item.root -ne 'profile') {
-                throw 'Approved shared packages may target only the isolated profile.'
+            $catalogId = [string](Get-RequiredProperty $item 'catalogId' 'Canonical approvedShared item')
+            if (-not $Catalog.byId.ContainsKey($catalogId)) { throw 'Canonical package is not in the trusted catalog.' }
+            $trusted = $Catalog.byId[$catalogId]
+            if ($item.root -cne 'profile' -or $item.relativePath -cne $trusted.destinationRelativePath -or
+                $item.sha256 -cne $trusted.sha256 -or $item.version -cne $trusted.version) {
+                throw 'Canonical package does not exactly match its trusted catalog entry.'
             }
         }
     }
@@ -162,16 +221,15 @@ function Read-CanonicalManifest {
     return $manifest
 }
 
-function Get-FileVersionMap {
+function Get-LocalVersionMap {
     param([string]$Root)
     $map = @{}
     $path = Join-Path $Root 'versions.json'
     if (Test-Path -LiteralPath $path -PathType Leaf) {
-        try { $versions = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json -ErrorAction Stop }
-        catch { throw 'The local versions.json metadata is invalid.' }
+        $versions = Read-JsonFile -Path $path -Label 'Local version metadata'
         foreach ($property in $versions.PSObject.Properties) {
             Assert-SafeRelativePath -Path ([string]$property.Name)
-            $map[$property.Name.ToLowerInvariant()] = [string]$property.Value
+            $map[$property.Name.ToLowerInvariant()] = Convert-ToPublicVersion $property.Value
         }
     }
     return $map
@@ -180,281 +238,372 @@ function Get-FileVersionMap {
 function Get-Inventory {
     param($Manifest, [string]$Game, [string]$Profiles)
     $expected = @{}
-    foreach ($item in @($Manifest.items)) {
-        $expected[('{0}|{1}' -f $item.root, $item.relativePath).ToLowerInvariant()] = $item
-    }
-    $versions = Get-FileVersionMap -Root $Game
-    $inventory = New-Object System.Collections.ArrayList
-    $dataRoot = Join-Path $Game 'Data'
-    if (Test-Path -LiteralPath $dataRoot -PathType Container) {
-        foreach ($file in @(Get-ChildItem -LiteralPath $dataRoot -File -Recurse -Force | Sort-Object FullName)) {
-            Assert-NoReparsePoint -Root $Game -Candidate $file.FullName
-            $relative = Convert-ToPortablePath -Path $file.FullName.Substring((Get-NormalizedPath -Path $Game).Length + 1)
+    foreach ($item in @($Manifest.items)) { $expected[('{0}|{1}' -f $item.root, $item.relativePath).ToLowerInvariant()] = $item }
+    $versions = Get-LocalVersionMap -Root $Game
+    $inventory = New-Object Collections.ArrayList
+    $data = Join-Path $Game 'Data'
+    if (Test-Path -LiteralPath $data -PathType Container) {
+        foreach ($file in @(Get-ChildItem -LiteralPath $data -File -Recurse -Force | Sort-Object FullName)) {
+            Assert-NoReparseAncestor -Path $file.FullName
+            $relative = Convert-ToPortablePath $file.FullName.Substring($Game.Length + 1)
             $key = ('game|{0}' -f $relative).ToLowerInvariant()
             $version = $null
             if ($versions.ContainsKey($relative.ToLowerInvariant())) { $version = $versions[$relative.ToLowerInvariant()] }
-            [void]$inventory.Add([pscustomobject]@{
-                root = 'game'; relativePath = $relative; sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-                version = $version; expected = $(if ($expected.ContainsKey($key)) { $expected[$key] } else { $null })
-            })
+            [void]$inventory.Add([pscustomobject]@{ root = 'game'; relativePath = $relative; sha256 = Get-LowerHash $file.FullName; version = $version; expected = $(if ($expected.ContainsKey($key)) { $expected[$key] } else { $null }); insideIsolated = $false })
         }
     }
-    $profilePath = Join-Path $Profiles 'Anniversary Together'
-    $profilePathNormalized = Get-NormalizedPath -Path $profilePath
+    $isolated = Join-Path $Profiles 'Anniversary Together'
     foreach ($file in @(Get-ChildItem -LiteralPath $Profiles -File -Recurse -Force | Sort-Object FullName)) {
-        Assert-NoReparsePoint -Root $Profiles -Candidate $file.FullName
-        $full = Get-NormalizedPath -Path $file.FullName
-        if ($full.StartsWith($profilePathNormalized + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
-            $relative = Convert-ToPortablePath -Path $full.Substring($profilePathNormalized.Length + 1)
-        }
-        else {
-            $relative = Convert-ToPortablePath -Path $full.Substring((Get-NormalizedPath -Path $Profiles).Length + 1)
-        }
+        Assert-NoReparseAncestor -Path $file.FullName
+        $full = Get-NormalizedPath $file.FullName
+        $inside = $full.StartsWith((Get-NormalizedPath $isolated) + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)
+        $relative = if ($inside) { Convert-ToPortablePath $full.Substring((Get-NormalizedPath $isolated).Length + 1) } else { Convert-ToPortablePath $full.Substring($Profiles.Length + 1) }
         $key = ('profile|{0}' -f $relative).ToLowerInvariant()
-        $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+        $hash = Get-LowerHash $full
         $version = $null
         if ($expected.ContainsKey($key) -and $expected[$key].sha256 -ceq $hash) { $version = [string]$expected[$key].version }
-        [void]$inventory.Add([pscustomobject]@{
-            root = 'profile'; relativePath = $relative; sha256 = $hash; version = $version
-            expected = $(if ($expected.ContainsKey($key)) { $expected[$key] } else { $null })
-        })
+        [void]$inventory.Add([pscustomobject]@{ root = 'profile'; relativePath = $relative; sha256 = $hash; version = $version; expected = $(if ($expected.ContainsKey($key)) { $expected[$key] } else { $null }); insideIsolated = $inside })
     }
     return @($inventory)
 }
 
-function New-Audit {
-    param($Manifest, [string]$ModeName, [string]$Game, [string]$Profiles)
-    $inventory = @(Get-Inventory -Manifest $Manifest -Game $Game -Profiles $Profiles)
-    $actual = @{}
-    $categories = [ordered]@{
-        anniversaryBaseline = New-Object System.Collections.ArrayList
-        approvedShared = New-Object System.Collections.ArrayList
-        machineSpecific = New-Object System.Collections.ArrayList
-        unknownOrIncompatible = New-Object System.Collections.ArrayList
+function New-KnownRecord {
+    param($Entry, [string]$Category)
+    return [pscustomobject][ordered]@{ root = $Entry.root; relativePath = [string]$Entry.relativePath; category = $Category; version = $Entry.version; sha256 = $Entry.sha256 }
+}
+
+function New-OpaqueRecord {
+    param($Entry, [string]$Category)
+    return [pscustomobject][ordered]@{ root = $Entry.root; opaqueId = Get-OpaqueId ("$($Entry.root)|$($Entry.relativePath)|$($Entry.sha256)"); category = $Category; sha256 = $Entry.sha256 }
+}
+
+function New-Difference {
+    param([string]$Root, [string]$RelativePath, $Expected, $Actual)
+    return [pscustomobject][ordered]@{ root = $Root; relativePath = $RelativePath; expected = $Expected; actual = $Actual }
+}
+
+function Get-LoadOrder {
+    param([string]$Game)
+    $path = Join-Path $Game 'Data\plugins.txt'
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return @() }
+    $result = New-Object Collections.ArrayList
+    foreach ($line in @(Get-Content -LiteralPath $path)) {
+        $entry = ($line -replace '#.*$', '').Trim()
+        if ($entry.StartsWith('*')) { $entry = $entry.Substring(1).Trim() }
+        if (-not [string]::IsNullOrWhiteSpace($entry)) { [void]$result.Add('Data/' + $entry) }
     }
+    return @($result)
+}
+
+function Get-RuntimeEvidence {
+    param([string]$Game, [string]$ExpectedVersion)
+    $binary = Join-Path $Game 'SkyrimSE.exe'
+    $actual = $null
+    if (Test-Path -LiteralPath $binary -PathType Leaf) {
+        Assert-NoReparseAncestor $binary
+        $versionInfo = (Get-Item -LiteralPath $binary -Force).VersionInfo
+        if (-not [string]::IsNullOrWhiteSpace([string]$versionInfo.FileVersion)) { $actual = Convert-ToPublicVersion $versionInfo.FileVersion }
+        $synthetic = Join-Path $Game 'SkyrimSE.exe.version.json'
+        if ($null -eq $actual -and (Test-Path -LiteralPath $synthetic -PathType Leaf)) {
+            $metadata = Read-JsonFile $synthetic 'Synthetic runtime version metadata'
+            if ($metadata.schema -cne 'skyrim-engineering.synthetic-version/v1') { throw 'Synthetic runtime version metadata schema is invalid.' }
+            $actual = Convert-ToPublicVersion $metadata.version
+        }
+    }
+    return [pscustomobject][ordered]@{ status = $(if ($actual -ceq $ExpectedVersion) { 'exact' } elseif ($null -eq $actual) { 'missing' } else { 'incompatible' }); expectedVersion = $ExpectedVersion; actualVersion = $actual }
+}
+
+function Get-ModManagerEvidence {
+    param([string]$Profiles)
+    $path = Join-Path $Profiles '.mod-manager.json'
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return [pscustomobject][ordered]@{ status = 'unavailable'; actualName = $null; actualVersion = $null; activeProfile = $null } }
+    $metadata = Read-JsonFile $path 'Mod manager metadata'
+    if ($metadata.schema -cne 'skyrim-engineering.mod-manager/v1') { throw 'Mod manager metadata schema is invalid.' }
+    return [pscustomobject][ordered]@{ status = 'observed'; actualName = 'redacted'; actualVersion = Convert-ToPublicVersion $metadata.version; activeProfile = 'redacted' }
+}
+
+function New-Audit {
+    param($Manifest, $Catalog, [string]$ModeName, [string]$Game, [string]$Profiles)
+    $inventory = @(Get-Inventory $Manifest $Game $Profiles)
+    $actual = @{}
+    $categories = [ordered]@{ anniversaryBaseline = New-Object Collections.ArrayList; approvedShared = New-Object Collections.ArrayList; machineSpecific = New-Object Collections.ArrayList; unknownOrIncompatible = New-Object Collections.ArrayList }
     foreach ($entry in $inventory) {
         $key = ('{0}|{1}' -f $entry.root, $entry.relativePath).ToLowerInvariant()
         $actual[$key] = $entry
-        if ($null -ne $entry.expected) { $category = [string]$entry.expected.category }
-        elseif ($entry.root -eq 'profile') { $category = 'machineSpecific' }
-        else { $category = 'unknownOrIncompatible' }
-        [void]$categories[$category].Add([pscustomobject][ordered]@{
-            relativePath = $entry.relativePath
-            version = $entry.version
-            sha256 = $entry.sha256
-        })
+        $exact = $null -ne $entry.expected -and $entry.sha256 -ceq $entry.expected.sha256 -and [string]$entry.version -ceq [string]$entry.expected.version
+        if ($exact) { [void]$categories[[string]$entry.expected.category].Add((New-KnownRecord $entry ([string]$entry.expected.category))) }
+        elseif ($null -ne $entry.expected) { [void]$categories.unknownOrIncompatible.Add((New-KnownRecord $entry 'unknownOrIncompatible')) }
+        elseif ($entry.root -eq 'profile' -and -not $entry.insideIsolated) { [void]$categories.machineSpecific.Add((New-OpaqueRecord $entry 'machineSpecific')) }
+        else { [void]$categories.unknownOrIncompatible.Add((New-OpaqueRecord $entry 'unknownOrIncompatible')) }
     }
-    foreach ($key in @($categories.Keys)) {
-        $categories[$key] = @($categories[$key] | Sort-Object relativePath)
-    }
-    $missing = New-Object System.Collections.ArrayList
-    $extra = New-Object System.Collections.ArrayList
-    $hashDifferent = New-Object System.Collections.ArrayList
-    $versionDifferent = New-Object System.Collections.ArrayList
+    foreach ($name in @($categories.Keys)) { $categories[$name] = @($categories[$name] | Sort-Object root, relativePath, opaqueId) }
+    $missing = New-Object Collections.ArrayList
+    $extra = New-Object Collections.ArrayList
+    $hashDifferent = New-Object Collections.ArrayList
+    $versionDifferent = New-Object Collections.ArrayList
     foreach ($item in @($Manifest.items)) {
         $key = ('{0}|{1}' -f $item.root, $item.relativePath).ToLowerInvariant()
-        if (-not $actual.ContainsKey($key)) {
-            [void]$missing.Add((New-Difference -RelativePath $item.relativePath))
-            continue
-        }
-        if ($actual[$key].sha256 -cne $item.sha256) { [void]$hashDifferent.Add((New-Difference -RelativePath $item.relativePath)) }
-        if ([string]$actual[$key].version -cne [string]$item.version) { [void]$versionDifferent.Add((New-Difference -RelativePath $item.relativePath)) }
+        if (-not $actual.ContainsKey($key)) { [void]$missing.Add((New-Difference $item.root $item.relativePath $item.sha256 $null)); continue }
+        if ($actual[$key].sha256 -cne $item.sha256) { [void]$hashDifferent.Add((New-Difference $item.root $item.relativePath $item.sha256 $actual[$key].sha256)) }
+        if ([string]$actual[$key].version -cne [string]$item.version) { [void]$versionDifferent.Add((New-Difference $item.root $item.relativePath $item.version $actual[$key].version)) }
     }
     foreach ($entry in $inventory) {
-        if ($null -eq $entry.expected) { [void]$extra.Add((New-Difference -RelativePath $entry.relativePath)) }
-    }
-    $actualOrder = @()
-    $pluginsPath = Join-Path $Game 'Data\plugins.txt'
-    if (Test-Path -LiteralPath $pluginsPath -PathType Leaf) {
-        $actualOrder = @(Get-Content -LiteralPath $pluginsPath | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { 'Data/' + $_.Trim() })
+        if ($null -eq $entry.expected) { [void]$extra.Add([pscustomobject][ordered]@{ root = $entry.root; opaqueId = Get-OpaqueId ("$($entry.root)|$($entry.relativePath)|$($entry.sha256)") }) }
     }
     $expectedOrder = @($Manifest.loadOrder)
-    $orderDifferent = New-Object System.Collections.ArrayList
-    $orderPaths = @($expectedOrder + $actualOrder | Sort-Object -Unique)
-    foreach ($path in $orderPaths) {
+    $actualOrder = @(Get-LoadOrder $Game)
+    $orderDifferent = New-Object Collections.ArrayList
+    foreach ($path in $expectedOrder) {
         $expectedIndex = [array]::IndexOf([object[]]$expectedOrder, $path)
         $actualIndex = [array]::IndexOf([object[]]$actualOrder, $path)
-        if ($expectedIndex -ne $actualIndex) { [void]$orderDifferent.Add((New-Difference -RelativePath $path)) }
+        if ($actualIndex -ge 0 -and $actualIndex -ne $expectedIndex) { [void]$orderDifferent.Add((New-Difference 'game' $path $expectedIndex $actualIndex)) }
     }
-    return [pscustomobject][ordered]@{
-        schema = 'skyrim-engineering.laptop-audit/v1'
-        clientId = $ClientId
-        mode = $ModeName
-        runtimeVersion = [string]$Manifest.runtimeVersion
-        categories = [pscustomobject]$categories
-        differences = [pscustomobject][ordered]@{
-            missing = @($missing | Sort-Object relativePath)
-            extra = @($extra | Sort-Object relativePath)
-            hashDifferent = @($hashDifferent | Sort-Object relativePath)
-            versionDifferent = @($versionDifferent | Sort-Object relativePath)
-            orderDifferent = @($orderDifferent | Sort-Object relativePath)
-        }
+    foreach ($path in @($actualOrder | Where-Object { $_ -notin $expectedOrder })) {
+        [void]$orderDifferent.Add([pscustomobject][ordered]@{ root = 'game'; opaqueId = Get-OpaqueId ('loadOrder|' + $path); expected = $null; actual = [array]::IndexOf([object[]]$actualOrder, $path) })
     }
-}
-
-function Get-Plan {
-    param($Manifest, $Audit, [string]$Profiles)
-    $actions = New-Object System.Collections.ArrayList
-    $profile = Join-Path $Profiles 'Anniversary Together'
-    if (-not (Test-Path -LiteralPath $profile -PathType Container)) {
-        [void]$actions.Add([pscustomobject][ordered]@{ type = 'createProfile'; relativePath = 'Anniversary Together' })
-    }
-    $missing = @{}
-    foreach ($difference in @($Audit.differences.missing)) { $missing[$difference.relativePath.ToLowerInvariant()] = $true }
-    foreach ($item in @($Manifest.items | Where-Object { $_.category -eq 'approvedShared' } | Sort-Object relativePath)) {
-        if ($missing.ContainsKey($item.relativePath.ToLowerInvariant())) {
-            [void]$actions.Add([pscustomobject][ordered]@{
-                type = 'installApprovedPackage'; id = [string]$item.id; relativePath = [string]$item.relativePath
-                version = [string]$item.version; sha256 = [string]$item.sha256
-            })
-        }
-    }
-    return [pscustomobject][ordered]@{
-        schema = 'skyrim-engineering.laptop-plan/v1'
-        clientId = $ClientId
-        actions = @($actions)
-        differences = $Audit.differences
-    }
-}
-
-function Write-StateFile {
-    param($State, [string]$Path)
-    $json = $State | ConvertTo-Json -Depth 8 -Compress
-    [IO.File]::WriteAllText($Path, $json, (New-Object Text.UTF8Encoding($false)))
-}
-
-function Add-JournaledDirectory {
-    param([string]$Directory, [string]$Profiles, $State, [string]$StatePath)
-    Assert-NoReparsePoint -Root $Profiles -Candidate $Directory
-    if (Test-Path -LiteralPath $Directory) {
-        if (-not (Test-Path -LiteralPath $Directory -PathType Container)) { throw 'A required profile directory path is occupied by a file.' }
-        return
-    }
-    $parent = Split-Path -Parent $Directory
-    if (-not [string]::Equals((Get-NormalizedPath -Path $parent), (Get-NormalizedPath -Path $Profiles), [StringComparison]::OrdinalIgnoreCase)) {
-        Add-JournaledDirectory -Directory $parent -Profiles $Profiles -State $State -StatePath $StatePath
-    }
-    [void](New-Item -ItemType Directory -Path $Directory)
-    $relative = Convert-ToPortablePath -Path (Get-NormalizedPath -Path $Directory).Substring((Get-NormalizedPath -Path $Profiles).Length + 1)
-    [void]$State.mutations.Add([pscustomobject][ordered]@{ type = 'createDirectory'; root = 'profile'; relativePath = $relative; sha256 = $null })
-    Write-StateFile -State $State -Path $StatePath
-}
-
-function Invoke-Apply {
-    param($Manifest, [string]$ManifestPath, [string]$Profiles, [string]$States)
-    if (-not $ConfirmApply) { throw 'Apply requires the separate -ConfirmApply switch.' }
-    $statePath = Join-Path $States ($ClientId + '.state.json')
-    if (Test-Path -LiteralPath $statePath) { throw 'An existing client state journal must be rolled back or archived before Apply.' }
-    $manifestDirectory = Split-Path -Parent (Get-NormalizedPath -Path $ManifestPath)
-    $profile = Join-Path $Profiles 'Anniversary Together'
-    $packages = @($Manifest.items | Where-Object { $_.category -eq 'approvedShared' } | Sort-Object relativePath)
-    foreach ($package in $packages) {
-        $source = Join-Path $manifestDirectory ([string]$package.sourceRelativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
-        Assert-NoReparsePoint -Root $manifestDirectory -Candidate $source
-        if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw 'An approved package source is missing.' }
-        if ((Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant() -cne $package.sha256) {
-            throw 'An approved package source failed its pinned SHA-256 check.'
-        }
-        $destination = Join-Path $profile ([string]$package.relativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
-        Assert-NoReparsePoint -Root $Profiles -Candidate $destination
-        Assert-ContainedPath -Root $profile -Candidate $destination
-        if (Test-Path -LiteralPath $destination) { throw 'Apply will not overwrite an existing profile add-on or file.' }
-    }
-    if (-not $PSCmdlet.ShouldProcess('Anniversary Together', 'Create isolated profile and install approved hash-verified free packages')) { return }
-    $state = [pscustomobject][ordered]@{
-        schema = 'skyrim-engineering.laptop-state/v1'; clientId = $ClientId; status = 'applying'
-        manifestSha256 = (Get-FileHash -LiteralPath $ManifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
-        mutations = New-Object System.Collections.ArrayList
-    }
-    Write-StateFile -State $state -Path $statePath
-    Add-JournaledDirectory -Directory $profile -Profiles $Profiles -State $state -StatePath $statePath
-    foreach ($package in $packages) {
-        $source = Join-Path $manifestDirectory ([string]$package.sourceRelativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
-        $destination = Join-Path $profile ([string]$package.relativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
-        Add-JournaledDirectory -Directory (Split-Path -Parent $destination) -Profiles $Profiles -State $state -StatePath $statePath
-        Copy-Item -LiteralPath $source -Destination $destination
-        [void]$state.mutations.Add([pscustomobject][ordered]@{
-            type = 'createFile'; root = 'profile'
-            relativePath = Convert-ToPortablePath -Path (Get-NormalizedPath -Path $destination).Substring((Get-NormalizedPath -Path $Profiles).Length + 1)
-            sha256 = [string]$package.sha256
+    $exactBaseline = @($categories.anniversaryBaseline).Count
+    $expectedBaseline = @($Manifest.items | Where-Object category -eq 'anniversaryBaseline').Count
+    $componentStatus = @{}
+    foreach ($component in @('skse', 'addressLibrary', 'skyrimTogether')) {
+        $componentItems = @($Manifest.items | Where-Object {
+            $_.category -eq 'approvedShared' -and $Catalog.byId[[string]$_.catalogId].component -ceq $component
         })
-        Write-StateFile -State $state -Path $statePath
+        $componentStatus[$component] = [pscustomobject][ordered]@{ status = $(if (@($componentItems).Count -eq 0) { 'notConfigured' } elseif (@($categories.approvedShared | Where-Object { $_.relativePath -in @($componentItems.relativePath) }).Count -eq $componentItems.Count) { 'exact' } else { 'missingOrIncompatible' }) }
     }
-    $state.status = 'applied'
-    Write-StateFile -State $state -Path $statePath
-    return $state
+    $pluginCount = @($inventory | Where-Object { [IO.Path]::GetExtension($_.relativePath).ToLowerInvariant() -in @('.esm', '.esl', '.esp') }).Count
+    $archiveCount = @($inventory | Where-Object { [IO.Path]::GetExtension($_.relativePath).ToLowerInvariant() -in @('.bsa', '.ba2') }).Count
+    $domains = [ordered]@{
+        runtime = Get-RuntimeEvidence $Game ([string]$Manifest.runtimeVersion)
+        creations = [pscustomobject][ordered]@{ status = $(if ($exactBaseline -eq $expectedBaseline) { 'exact' } else { 'missingOrIncompatible' }); expectedCount = $expectedBaseline; exactCount = $exactBaseline }
+        plugins = [pscustomobject][ordered]@{ status = 'observed'; count = $pluginCount }
+        archives = [pscustomobject][ordered]@{ status = 'observed'; count = $archiveCount }
+        skse = $componentStatus.skse
+        addressLibrary = $componentStatus.addressLibrary
+        skyrimTogether = $componentStatus.skyrimTogether
+        modManager = Get-ModManagerEvidence $Profiles
+        profiles = [pscustomobject][ordered]@{ status = 'observed'; count = @(Get-ChildItem -LiteralPath $Profiles -Directory -Force).Count }
+        loadOrder = [pscustomobject][ordered]@{ status = $(if ($orderDifferent.Count -eq 0) { 'exact' } else { 'different' }); expectedCount = $expectedOrder.Count; actualCount = $actualOrder.Count }
+    }
+    return [pscustomobject][ordered]@{
+        schema = 'skyrim-engineering.laptop-audit/v1'; clientId = $ClientId; mode = $ModeName; runtimeVersion = [string]$Manifest.runtimeVersion
+        domains = [pscustomobject]$domains; categories = [pscustomobject]$categories
+        differences = [pscustomobject][ordered]@{ missing = @($missing | Sort-Object root, relativePath); extra = @($extra | Sort-Object root, opaqueId); hashDifferent = @($hashDifferent | Sort-Object root, relativePath); versionDifferent = @($versionDifferent | Sort-Object root, relativePath); orderDifferent = @($orderDifferent | Sort-Object root, relativePath, opaqueId) }
+    }
 }
 
-function Invoke-Rollback {
-    param([string]$Profiles, [string]$States)
+function Get-TrustedPackages {
+    param($Manifest, $Catalog)
+    $result = New-Object Collections.ArrayList
+    foreach ($item in @($Manifest.items | Where-Object category -eq 'approvedShared' | Sort-Object relativePath)) { [void]$result.Add($Catalog.byId[[string]$item.catalogId]) }
+    return @($result)
+}
+
+function New-Plan {
+    param($Manifest, $Catalog, $Audit, [string]$Profiles)
+    $actions = New-Object Collections.ArrayList
+    if (-not (Test-Path -LiteralPath (Join-Path $Profiles 'Anniversary Together'))) { [void]$actions.Add([pscustomobject][ordered]@{ type = 'createProfile'; relativePath = 'Anniversary Together' }) }
+    $missingPaths = @($Audit.differences.missing.relativePath)
+    foreach ($package in @(Get-TrustedPackages $Manifest $Catalog)) {
+        if ($package.destinationRelativePath -in $missingPaths) { [void]$actions.Add([pscustomobject][ordered]@{ type = 'stageApprovedFile'; catalogId = $package.catalogId; component = $package.component; relativePath = $package.destinationRelativePath; version = $package.version; sha256 = $package.sha256 }) }
+    }
+    return [pscustomobject][ordered]@{ schema = 'skyrim-engineering.laptop-plan/v1'; clientId = $ClientId; operation = 'stagedFileScaffold'; actions = @($actions); differences = $Audit.differences }
+}
+
+function Get-ExpectedMutations {
+    param($Manifest, $Catalog)
+    $directories = @{'Anniversary Together' = $true}
+    $files = New-Object Collections.ArrayList
+    foreach ($package in @(Get-TrustedPackages $Manifest $Catalog)) {
+        $relative = 'Anniversary Together/' + [string]$package.destinationRelativePath
+        $parent = [IO.Path]::GetDirectoryName($relative.Replace('/', [IO.Path]::DirectorySeparatorChar))
+        while (-not [string]::IsNullOrEmpty($parent)) {
+            $portable = Convert-ToPortablePath $parent
+            $directories[$portable] = $true
+            if ($portable -ceq 'Anniversary Together') { break }
+            $parent = [IO.Path]::GetDirectoryName($parent)
+        }
+        [void]$files.Add([pscustomobject][ordered]@{ type = 'createFile'; root = 'profile'; relativePath = $relative; sha256 = [string]$package.sha256; catalogId = [string]$package.catalogId; status = 'planned' })
+    }
+    $mutations = New-Object Collections.ArrayList
+    foreach ($directory in @($directories.Keys | Sort-Object { ($_ -split '/').Count }, { $_ })) { [void]$mutations.Add([pscustomobject][ordered]@{ type = 'createDirectory'; root = 'profile'; relativePath = $directory; sha256 = $null; catalogId = $null; status = 'planned' }) }
+    foreach ($file in @($files | Sort-Object relativePath)) { [void]$mutations.Add($file) }
+    return @($mutations)
+}
+
+function Write-BytesExclusively {
+    param([string]$Path, [byte[]]$Bytes)
+    $stream = New-Object IO.FileStream($Path, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+    try { $stream.Write($Bytes, 0, $Bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
+}
+
+function Write-StateAtomic {
+    param($State, [string]$StatePath, [switch]$CreateNew)
+    $next = $StatePath + '.next'
+    if (Test-Path -LiteralPath $next) { throw 'A stale atomic journal update exists; rollback or inspect before continuing.' }
+    $bytes = (New-Object Text.UTF8Encoding($false)).GetBytes(($State | ConvertTo-Json -Depth 12 -Compress))
+    Write-BytesExclusively $next $bytes
+    try {
+        if ($CreateNew) {
+            if (Test-Path -LiteralPath $StatePath) { throw 'Client state journal already exists.' }
+            [IO.File]::Move($next, $StatePath)
+        }
+        else {
+            $backup = $StatePath + '.backup'
+            if (Test-Path -LiteralPath $backup) { throw 'A stale atomic journal backup exists.' }
+            [IO.File]::Replace($next, $StatePath, $backup)
+            if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup }
+        }
+    }
+    finally { if (Test-Path -LiteralPath $next) { Remove-Item -LiteralPath $next } }
+}
+
+function Assert-SourcePackage {
+    param($Package, [string]$ManifestDirectory)
+    $source = Join-Path $ManifestDirectory ([string]$Package.sourceRelativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
+    Assert-ContainedPath $ManifestDirectory $source
+    Assert-NoReparseAncestor $source
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or (Get-LowerHash $source) -cne $Package.sha256) { throw 'Trusted catalog package source is missing or failed its pinned hash.' }
+    return $source
+}
+
+function Invoke-ApplyTransaction {
+    param($Manifest, $Catalog, [string]$ManifestPath, [string]$Profiles, [string]$States)
+    if (-not $ConfirmApply) { throw 'Apply requires the separate -ConfirmApply switch.' }
+    if (-not $PSCmdlet.ShouldProcess('Anniversary Together', 'Create a new isolated profile and stage trusted text fixtures')) { return }
+    $profile = Join-Path $Profiles 'Anniversary Together'
+    $statePath = Join-Path $States ($ClientId + '.state.json')
+    $manifestDirectory = Split-Path -Parent $ManifestPath
+    Assert-NoReparseAncestor $manifestDirectory
+    Assert-NoReparseAncestor $States
+    if (Test-Path -LiteralPath $profile) { throw 'Anniversary Together already exists; Apply refuses to merge into a pre-existing profile.' }
+    if (Test-Path -LiteralPath $statePath) { throw 'Client state journal already exists; use Rollback for an applying or applied transaction.' }
+    $packages = @(Get-TrustedPackages $Manifest $Catalog)
+    foreach ($package in $packages) { [void](Assert-SourcePackage $package $manifestDirectory) }
+    $state = [pscustomobject][ordered]@{ schema = 'skyrim-engineering.laptop-state/v1'; clientId = $ClientId; status = 'applying'; operation = 'stagedFileScaffold'; manifestSha256 = Get-LowerHash $ManifestPath; catalogSha256 = $Catalog.sha256; mutations = @(Get-ExpectedMutations $Manifest $Catalog) }
+    Write-StateAtomic $state $statePath -CreateNew
+    try {
+        for ($index = 0; $index -lt $state.mutations.Count; $index++) {
+            $mutation = $state.mutations[$index]
+            $path = Join-Path $Profiles ([string]$mutation.relativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
+            Assert-ContainedPath $Profiles $path
+            $mutation.status = 'pending'
+            Write-StateAtomic $state $statePath
+            if ($mutation.type -eq 'createDirectory') {
+                Assert-NoReparseAncestor (Split-Path -Parent $path)
+                if (Test-Path -LiteralPath $path) { throw 'A profile destination appeared before exclusive creation.' }
+                [void](New-Item -ItemType Directory -Path $path -ErrorAction Stop)
+            }
+            else {
+                $package = $Catalog.byId[[string]$mutation.catalogId]
+                $source = Assert-SourcePackage $package $manifestDirectory
+                $payloadTemp = Join-Path $States ('.' + $ClientId + '.' + $package.catalogId + '.payload.tmp')
+                if (Test-Path -LiteralPath $payloadTemp) { throw 'A stale staged payload exists; rollback before continuing.' }
+                $sourceStream = New-Object IO.FileStream($source, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+                $tempStream = New-Object IO.FileStream($payloadTemp, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+                try { $sourceStream.CopyTo($tempStream); $tempStream.Flush($true) } finally { $sourceStream.Dispose(); $tempStream.Dispose() }
+                if ((Get-LowerHash $payloadTemp) -cne $package.sha256) { throw 'Staged payload failed post-copy hash verification.' }
+                Assert-NoReparseAncestor (Split-Path -Parent $path)
+                [void](Assert-SourcePackage $package $manifestDirectory)
+                if (Test-Path -LiteralPath $path) { throw 'A profile destination appeared before exclusive file creation.' }
+                [IO.File]::Move($payloadTemp, $path)
+                if ((Get-LowerHash $path) -cne $package.sha256) { throw 'Installed staged file failed post-copy hash verification.' }
+            }
+            $mutation.status = 'complete'
+            Write-StateAtomic $state $statePath
+        }
+        $state.status = 'applied'
+        Write-StateAtomic $state $statePath
+        return $state
+    }
+    catch { throw ('Apply stopped in recoverable applying state. Run Rollback with the same manifest and roots. {0}' -f $_.Exception.Message) }
+}
+
+function Assert-JournalAllowlist {
+    param($State, $Manifest, $Catalog, [string]$ManifestPath)
+    if ($State.schema -cne 'skyrim-engineering.laptop-state/v1' -or $State.clientId -cne $ClientId -or $State.status -cnotin @('applying', 'applied') -or
+        $State.operation -cne 'stagedFileScaffold' -or $State.manifestSha256 -cne (Get-LowerHash $ManifestPath) -or $State.catalogSha256 -cne $Catalog.sha256) {
+        throw 'State journal identity or trusted manifest binding is invalid.'
+    }
+    $expected = @(Get-ExpectedMutations $Manifest $Catalog)
+    $actual = @($State.mutations)
+    if ($actual.Count -ne $expected.Count) { throw 'State journal mutation set does not match the trusted allowlist.' }
+    $seen = @{}
+    for ($index = 0; $index -lt $expected.Count; $index++) {
+        $want = $expected[$index]; $have = $actual[$index]
+        $key = ('{0}|{1}' -f $have.type, $have.relativePath).ToLowerInvariant()
+        if ($seen.ContainsKey($key) -or $have.type -cne $want.type -or $have.root -cne 'profile' -or $have.relativePath -cne $want.relativePath -or
+            [string]$have.sha256 -cne [string]$want.sha256 -or [string]$have.catalogId -cne [string]$want.catalogId -or $have.status -cnotin @('planned', 'pending', 'complete')) {
+            throw 'State journal contains duplicate, altered, or non-allowlisted mutations.'
+        }
+        $seen[$key] = $true
+    }
+    return $actual
+}
+
+function Move-Verify-DeleteFile {
+    param([string]$Path, [string]$ExpectedHash, [string]$Quarantine)
+    Assert-NoReparseAncestor $Path
+    if (Test-Path -LiteralPath $Quarantine) { throw 'Rollback quarantine path is unexpectedly occupied.' }
+    [IO.File]::Move($Path, $Quarantine)
+    $hash = Get-LowerHash $Quarantine
+    if ($hash -cne $ExpectedHash) {
+        if (-not (Test-Path -LiteralPath $Path)) { [IO.File]::Move($Quarantine, $Path) }
+        throw 'A journaled file hash no longer matches; rollback restored it without deletion.'
+    }
+    Remove-Item -LiteralPath $Quarantine
+}
+
+function Invoke-RollbackTransaction {
+    param($Manifest, $Catalog, [string]$ManifestPath, [string]$Profiles, [string]$States)
     $statePath = Join-Path $States ($ClientId + '.state.json')
     if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) { throw 'No journaled state exists for this client.' }
-    try { $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json -ErrorAction Stop }
-    catch { throw 'The client state journal is invalid.' }
-    if ($state.schema -cne 'skyrim-engineering.laptop-state/v1' -or $state.clientId -cne $ClientId -or $state.status -cne 'applied') {
-        throw 'The client state journal is not an applied journal for this anonymous client.'
-    }
-    $mutations = @($state.mutations)
-    foreach ($mutation in $mutations) {
-        Assert-SafeRelativePath -Path ([string]$mutation.relativePath)
-        if (-not ([string]$mutation.relativePath).StartsWith('Anniversary Together/', [StringComparison]::OrdinalIgnoreCase) -and
-            [string]$mutation.relativePath -cne 'Anniversary Together') {
-            throw 'The journal contains a mutation outside the isolated profile.'
-        }
+    if (-not $PSCmdlet.ShouldProcess('Anniversary Together', 'Rollback only the trusted manifest-derived mutation allowlist')) { return }
+    Assert-NoReparseAncestor $statePath
+    $state = Read-JsonFile $statePath 'Client state journal'
+    $mutations = @(Assert-JournalAllowlist $state $Manifest $Catalog $ManifestPath)
+    foreach ($mutation in @($mutations | Where-Object { $_.type -eq 'createFile' -and $_.status -in @('pending', 'complete') } | Sort-Object relativePath -Descending)) {
         $path = Join-Path $Profiles ([string]$mutation.relativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
-        Assert-NoReparsePoint -Root $Profiles -Candidate $path
-        if ($mutation.type -eq 'createFile' -and (Test-Path -LiteralPath $path -PathType Leaf)) {
-            $hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
-            if ($hash -cne [string]$mutation.sha256) { throw 'A journaled file hash no longer matches; rollback refused without changing files.' }
+        Assert-ContainedPath $Profiles $path
+        if (Test-Path -LiteralPath $path -PathType Leaf) {
+            $quarantine = Join-Path $States ('.' + $ClientId + '.' + $mutation.catalogId + '.rollback.tmp')
+            Move-Verify-DeleteFile $path ([string]$mutation.sha256) $quarantine
         }
-        elseif ($mutation.type -cnotin @('createFile', 'createDirectory')) { throw 'The journal contains an unsupported mutation type.' }
+        $payloadTemp = Join-Path $States ('.' + $ClientId + '.' + $mutation.catalogId + '.payload.tmp')
+        if (Test-Path -LiteralPath $payloadTemp -PathType Leaf) { Remove-Item -LiteralPath $payloadTemp }
     }
-    if (-not $PSCmdlet.ShouldProcess('Anniversary Together', 'Rollback only journaled bootstrap changes')) { return }
-    foreach ($mutation in @($mutations | Where-Object { $_.type -eq 'createFile' } | Sort-Object relativePath -Descending)) {
+    foreach ($mutation in @($mutations | Where-Object { $_.type -eq 'createDirectory' -and $_.status -in @('pending', 'complete') } | Sort-Object { ([string]$_.relativePath).Length } -Descending)) {
         $path = Join-Path $Profiles ([string]$mutation.relativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
-        if (Test-Path -LiteralPath $path -PathType Leaf) { Remove-Item -LiteralPath $path }
+        Assert-ContainedPath $Profiles $path
+        Assert-NoReparseAncestor $path
+        if ((Test-Path -LiteralPath $path -PathType Container) -and @(Get-ChildItem -LiteralPath $path -Force).Count -eq 0) { Remove-Item -LiteralPath $path }
     }
-    $directories = @($mutations | Where-Object { $_.type -eq 'createDirectory' } | Sort-Object { ([string]$_.relativePath).Length } -Descending)
-    foreach ($mutation in $directories) {
-        $path = Join-Path $Profiles ([string]$mutation.relativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
-        if ((Test-Path -LiteralPath $path -PathType Container) -and @(Get-ChildItem -LiteralPath $path -Force).Count -eq 0) {
-            Remove-Item -LiteralPath $path
-        }
-    }
+    $next = $statePath + '.next'
+    if (Test-Path -LiteralPath $next -PathType Leaf) { Remove-Item -LiteralPath $next }
     $state.status = 'rolledBack'
-    Write-StateFile -State $state -Path $statePath
+    Write-StateAtomic $state $statePath
     return $state
 }
 
 $modeCount = @($AuditOnly, $Plan, $Apply, $Verify, $Rollback | Where-Object { $_ }).Count
 if ($modeCount -ne 1) { throw 'Select exactly one mode: -AuditOnly, -Plan, -Apply, -Verify, or -Rollback.' }
 if ($ConfirmApply -and -not $Apply) { throw '-ConfirmApply is valid only with -Apply.' }
-
-$game = Get-NormalizedPath -Path $GameRoot
-$profiles = Get-NormalizedPath -Path $ProfileRoot
-$manifestPath = Get-NormalizedPath -Path $CanonicalManifest
-$states = Get-NormalizedPath -Path $StateDirectory
+foreach ($inputPath in @($GameRoot, $ProfileRoot, $CanonicalManifest, $StateDirectory)) { Assert-FullyQualifiedLocalPath $inputPath }
+$game = Get-NormalizedPath $GameRoot
+$profiles = Get-NormalizedPath $ProfileRoot
+$manifestPath = Get-NormalizedPath $CanonicalManifest
+$states = Get-NormalizedPath $StateDirectory
 foreach ($root in @($game, $profiles, $states)) {
     if (-not (Test-Path -LiteralPath $root -PathType Container)) { throw 'GameRoot, ProfileRoot, and StateDirectory must be existing explicit directories.' }
-    if (((Get-Item -LiteralPath $root -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Explicit roots must not be reparse points.' }
+    Assert-NoReparseAncestor $root
 }
-$manifest = Read-CanonicalManifest -Path $manifestPath
+Assert-DisjointRoots @($game, $profiles, $states)
+Assert-NoReparseAncestor $manifestPath
+$catalogPath = Get-NormalizedPath (Join-Path $PSScriptRoot '..\references\laptop-package-catalog.json')
+$catalog = Read-PackageCatalog $catalogPath
+$manifest = Read-CanonicalManifest $manifestPath $catalog
 
-if ($AuditOnly) {
-    New-Audit -Manifest $manifest -ModeName 'auditOnly' -Game $game -Profiles $profiles | ConvertTo-Json -Depth 8 -Compress
-}
-elseif ($Plan) {
-    $audit = New-Audit -Manifest $manifest -ModeName 'plan' -Game $game -Profiles $profiles
-    Get-Plan -Manifest $manifest -Audit $audit -Profiles $profiles | ConvertTo-Json -Depth 8 -Compress
-}
-elseif ($Apply) {
-    $result = Invoke-Apply -Manifest $manifest -ManifestPath $manifestPath -Profiles $profiles -States $states
-    if ($null -ne $result) { $result | ConvertTo-Json -Depth 8 -Compress }
-}
-elseif ($Verify) {
-    New-Audit -Manifest $manifest -ModeName 'verify' -Game $game -Profiles $profiles | ConvertTo-Json -Depth 8 -Compress
-}
-elseif ($Rollback) {
-    $result = Invoke-Rollback -Profiles $profiles -States $states
-    if ($null -ne $result) { $result | ConvertTo-Json -Depth 8 -Compress }
-}
+if ($AuditOnly) { New-Audit $manifest $catalog 'auditOnly' $game $profiles | ConvertTo-Json -Depth 10 -Compress }
+elseif ($Plan) { $audit = New-Audit $manifest $catalog 'plan' $game $profiles; New-Plan $manifest $catalog $audit $profiles | ConvertTo-Json -Depth 10 -Compress }
+elseif ($Apply) { $result = Invoke-ApplyTransaction $manifest $catalog $manifestPath $profiles $states; if ($null -ne $result) { $result | ConvertTo-Json -Depth 12 -Compress } }
+elseif ($Verify) { New-Audit $manifest $catalog 'verify' $game $profiles | ConvertTo-Json -Depth 10 -Compress }
+elseif ($Rollback) { $result = Invoke-RollbackTransaction $manifest $catalog $manifestPath $profiles $states; if ($null -ne $result) { $result | ConvertTo-Json -Depth 12 -Compress } }

@@ -27,9 +27,7 @@
       "relativePath": "mods/Address Library/address-library.synthetic.txt",
       "sha256": "af6bad1e94ad90a05f6616e16fde743b2407473d35e49ab35eda31bf202e408a",
       "version": "11",
-      "approved": true,
-      "free": true,
-      "sourceRelativePath": "packages/address-library.synthetic.txt"
+      "catalogId": "synthetic-address-library"
     },
     {
       "id": "skse",
@@ -38,9 +36,7 @@
       "relativePath": "mods/SKSE/skse.synthetic.txt",
       "sha256": "dc96e1dd0468f36f659a4be9049ca921b34968702801e922b750b262a20de50e",
       "version": "2.2.6",
-      "approved": true,
-      "free": true,
-      "sourceRelativePath": "packages/skse.synthetic.txt"
+      "catalogId": "synthetic-skse"
     },
     {
       "id": "skyrim-together",
@@ -49,9 +45,7 @@
       "relativePath": "mods/Skyrim Together/skyrim-together.synthetic.txt",
       "sha256": "3edbfe4b6b08f30aff9f2560a428cb3ffe85c03c1dc72fc5a52a072217dee81e",
       "version": "1.7.1",
-      "approved": true,
-      "free": true,
-      "sourceRelativePath": "packages/skyrim-together.synthetic.txt"
+      "catalogId": "synthetic-skyrim-together"
     }
   ],
   "loadOrder": [

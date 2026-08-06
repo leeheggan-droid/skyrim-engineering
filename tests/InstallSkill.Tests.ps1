@@ -55,4 +55,20 @@ Describe 'install-skill junction safety' {
         New-Item -ItemType Junction -Path $linkedSkills -Target $realSkills | Out-Null
         { & $installer -RepositoryRoot $repositoryRoot -CodexSkillsRoot $linkedSkills -Confirm:$false } | Should -Throw '*reparse point*'
     }
+
+    It 'refuses repository and skills paths reached through reparse-point ancestors' {
+        $realParent = Join-Path $TestDrive 'real-parent'
+        $linkedParent = Join-Path $TestDrive 'linked-parent'
+        New-Item -ItemType Directory -Path $realParent | Out-Null
+        New-Item -ItemType Junction -Path $linkedParent -Target $realParent | Out-Null
+        $nestedSkills = Join-Path $linkedParent 'nested-skills'
+        New-Item -ItemType Directory -Path $nestedSkills | Out-Null
+
+        { & $installer -RepositoryRoot $repositoryRoot -CodexSkillsRoot $nestedSkills -Confirm:$false } | Should -Throw '*reparse*ancestor*'
+    }
+
+    It 'requires fully qualified repository and skills roots' {
+        { & $installer -RepositoryRoot '.' -CodexSkillsRoot $skillsRoot -Confirm:$false } | Should -Throw '*fully qualified*'
+        { & $installer -RepositoryRoot $repositoryRoot -CodexSkillsRoot '.\skills' -Confirm:$false } | Should -Throw '*fully qualified*'
+    }
 }

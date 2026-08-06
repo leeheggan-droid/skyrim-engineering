@@ -1,7 +1,11 @@
 Describe 'inspect-skyrim' {
     BeforeAll {
         $script:inspectorPath = Join-Path $PSScriptRoot '..\skill\skyrim-engineering\scripts\inspect-skyrim.ps1'
-        $script:steamFixture = Join-Path $PSScriptRoot 'fixtures\steam'
+        $script:steamFixture = Join-Path $TestDrive 'steam'
+        $steamApps = Join-Path $steamFixture 'steamapps'
+        New-Item -ItemType Directory -Path $steamApps -Force | Out-Null
+        Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'fixtures\steam\steamapps\appmanifest_489830.acf.txt') `
+            -Destination (Join-Path $steamApps 'appmanifest_489830.acf')
         $script:gameFixture = Join-Path $PSScriptRoot 'fixtures\game'
     }
 

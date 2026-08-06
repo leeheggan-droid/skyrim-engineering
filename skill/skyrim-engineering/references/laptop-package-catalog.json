@@ -1,0 +1,53 @@
+{
+  "schema": "skyrim-engineering.package-catalog/v1",
+  "policy": {
+    "operation": "stagedFileScaffold",
+    "archivesSupported": false,
+    "executablesSupported": false,
+    "forbiddenExtensions": [".ba2", ".bsa", ".dll", ".esm", ".esl", ".esp", ".ess", ".exe", ".pex", ".rar", ".sav", ".skse", ".zip", ".7z"]
+  },
+  "packages": [
+    {
+      "catalogId": "synthetic-address-library",
+      "component": "addressLibrary",
+      "version": "11",
+      "sha256": "af6bad1e94ad90a05f6616e16fde743b2407473d35e49ab35eda31bf202e408a",
+      "sourceRelativePath": "packages/address-library.synthetic.txt",
+      "destinationRelativePath": "mods/Address Library/address-library.synthetic.txt",
+      "packageType": "stagedTextFixture",
+      "publisher": "skyrim-engineering",
+      "provenance": "original repository synthetic fixture",
+      "license": "GPL-3.0-or-later",
+      "approved": true,
+      "free": true
+    },
+    {
+      "catalogId": "synthetic-skse",
+      "component": "skse",
+      "version": "2.2.6",
+      "sha256": "dc96e1dd0468f36f659a4be9049ca921b34968702801e922b750b262a20de50e",
+      "sourceRelativePath": "packages/skse.synthetic.txt",
+      "destinationRelativePath": "mods/SKSE/skse.synthetic.txt",
+      "packageType": "stagedTextFixture",
+      "publisher": "skyrim-engineering",
+      "provenance": "original repository synthetic fixture",
+      "license": "GPL-3.0-or-later",
+      "approved": true,
+      "free": true
+    },
+    {
+      "catalogId": "synthetic-skyrim-together",
+      "component": "skyrimTogether",
+      "version": "1.7.1",
+      "sha256": "3edbfe4b6b08f30aff9f2560a428cb3ffe85c03c1dc72fc5a52a072217dee81e",
+      "sourceRelativePath": "packages/skyrim-together.synthetic.txt",
+      "destinationRelativePath": "mods/Skyrim Together/skyrim-together.synthetic.txt",
+      "packageType": "stagedTextFixture",
+      "publisher": "skyrim-engineering",
+      "provenance": "original repository synthetic fixture",
+      "license": "GPL-3.0-or-later",
+      "approved": true,
+      "free": true
+    }
+  ]
+}

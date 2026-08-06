@@ -1,7 +1,13 @@
 Describe 'inventory-creations' {
     BeforeAll {
         $script:inventoryPath = Join-Path $PSScriptRoot '..\skill\skyrim-engineering\scripts\inventory-creations.ps1'
-        $script:creationFixture = Join-Path $PSScriptRoot 'fixtures\creations\Data'
+        $sourceFixture = Join-Path $PSScriptRoot 'fixtures\creations\Data'
+        $script:creationFixture = Join-Path $TestDrive 'creations\Data'
+        New-Item -ItemType Directory -Path $creationFixture -Force | Out-Null
+        Get-ChildItem -LiteralPath $sourceFixture -File | ForEach-Object {
+            $name = if ($_.Name.EndsWith('.txt') -and $_.BaseName -match '\.(esm|esl|esp|bsa)$') { $_.BaseName } else { $_.Name }
+            Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $creationFixture $name)
+        }
         $script:loadOrderFixture = Join-Path $PSScriptRoot 'fixtures\creations\loadorder.txt'
     }
 
