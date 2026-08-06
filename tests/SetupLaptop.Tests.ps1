@@ -15,7 +15,7 @@ Describe 'setup-laptop safe bootstrap' {
             if ($null -eq $definition) { throw "Missing setup function: $Name" }
             Invoke-Expression ($definition.Extent.Text -replace ('^function\s+' + [regex]::Escape($Name)), ('function script:' + $Name))
         }
-        foreach ($name in @('Convert-ToPortablePath', 'Assert-SafeRelativePath', 'Get-NormalizedPath', 'Assert-NoReparseAncestor', 'Get-LowerHash', 'Assert-ContainedPath', 'Assert-SourcePackage')) {
+        foreach ($name in @('Convert-ToPortablePath', 'Assert-SafeRelativePath', 'Get-NormalizedPath', 'Assert-NoReparseAncestor', 'Get-LowerHash', 'Assert-ContainedPath', 'Assert-SourcePackage', 'Initialize-PhysicalIdentityApi', 'Open-DirectoryLease')) {
             Import-SetupFunction $name
         }
 
@@ -29,6 +29,7 @@ Describe 'setup-laptop safe bootstrap' {
                 [string]$PackageCache = $script:packageCache,
                 [string]$ToolRoot,
                 [string]$InterruptAfter,
+                [int]$InterruptMutationIndex = -1,
                 [switch]$ConfirmApply,
                 [switch]$WhatIf
             )
@@ -45,6 +46,7 @@ Describe 'setup-laptop safe bootstrap' {
             if ($Mode -eq 'Apply') { $arguments.PackageCache = $PackageCache }
             if (-not [string]::IsNullOrWhiteSpace($ToolRoot)) { $arguments.ToolRoot = $ToolRoot }
             if (-not [string]::IsNullOrWhiteSpace($InterruptAfter)) { $arguments.InterruptAfter = $InterruptAfter }
+            if ($InterruptMutationIndex -ge 0) { $arguments.InterruptMutationIndex = $InterruptMutationIndex }
             if ($WhatIf) { $arguments.WhatIf = $true }
             & $script:setupScript @arguments
         }
@@ -83,10 +85,9 @@ Describe 'setup-laptop safe bootstrap' {
         $audit.schema | Should -Be 'skyrim-engineering.laptop-audit/v1'
         $audit.clientId | Should -Be 'client-a'
         @($audit.categories.PSObject.Properties.Name) | Should -Be @('anniversaryBaseline', 'approvedShared', 'machineSpecific', 'unknownOrIncompatible')
-        @($audit.differences.missing.relativePath) | Should -Be @(
-            'mods/SKSE/skse64_1_6_1170.dll',
-            'mods/SKSE/skse64_loader.exe'
-        )
+        @($audit.differences.missing.relativePath).Count | Should -Be 64
+        @($audit.differences.missing.relativePath) | Should -Contain 'skse64_1_6_1170.dll'
+        @($audit.differences.missing.relativePath) | Should -Contain 'Data/Scripts/skse.pex'
         @($audit.differences.hashDifferent.relativePath) | Should -Be @('Data/Skyrim.synthetic.txt')
         @($audit.differences.versionDifferent.relativePath) | Should -Be @('Data/Skyrim.synthetic.txt')
         @($audit.differences.orderDifferent.relativePath) | Should -Be @('Data/Skyrim.synthetic.txt', 'Data/Update.synthetic.txt')
@@ -142,12 +143,12 @@ Describe 'setup-laptop safe bootstrap' {
         $state.schema | Should -Be 'skyrim-engineering.laptop-state/v1'
         @($state.mutations).Count | Should -BeGreaterThan 0
         @($state.mutations.relativePath) | Should -Not -Contain 'keep-user-file.txt'
-        Test-Path -LiteralPath (Join-Path $profile 'mods\SKSE\skse64_loader.exe') | Should -BeTrue
+        Test-Path -LiteralPath (Join-Path $gameRoot 'skse64_loader.exe') | Should -BeTrue
 
         Invoke-LaptopSetup -Mode Rollback -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot | Out-Null
 
         Test-Path -LiteralPath $userFile -PathType Leaf | Should -BeTrue
-        Test-Path -LiteralPath (Join-Path $profile 'mods\SKSE\skse64_loader.exe') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $gameRoot 'skse64_loader.exe') | Should -BeFalse
         Test-Path -LiteralPath (Join-Path $profileRoot 'Existing') | Should -BeFalse
     }
 
@@ -160,8 +161,8 @@ Describe 'setup-laptop safe bootstrap' {
         $verify.domains.skse.status | Should -Be 'exact'
         $verify.domains.addressLibrary.status | Should -Be 'unsupportedPendingIntake'
         $verify.domains.skyrimTogether.status | Should -Be 'unsupportedPendingIntake'
-        @($verify.differences.missing.relativePath | Where-Object { $_ -like 'mods/*' }) | Should -BeNullOrEmpty
-        @($verify.differences.hashDifferent.relativePath | Where-Object { $_ -like 'mods/*' }) | Should -BeNullOrEmpty
+        @($verify.differences.missing.relativePath | Where-Object { $_ -notin @('Data/Skyrim.synthetic.txt', 'Data/Update.synthetic.txt') }) | Should -BeNullOrEmpty
+        @($verify.differences.hashDifferent.relativePath | Where-Object { $_ -notin @('Data/Skyrim.synthetic.txt', 'Data/Update.synthetic.txt') }) | Should -BeNullOrEmpty
     }
 
     It 'rejects unsafe manifest paths secrets and reparse-point destinations' {
@@ -185,12 +186,12 @@ Describe 'setup-laptop safe bootstrap' {
 
     It 'refuses rollback when a journaled file was changed after apply' {
         Invoke-LaptopSetup -Mode Apply -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot -ConfirmApply | Out-Null
-        Set-Content -LiteralPath (Join-Path $profileRoot 'Anniversary Together\mods\SKSE\skse64_loader.exe') -Value 'changed' -NoNewline
+        Set-Content -LiteralPath (Join-Path $gameRoot 'skse64_loader.exe') -Value 'changed' -NoNewline
 
         {
             Invoke-LaptopSetup -Mode Rollback -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot
         } | Should -Throw '*hash no longer matches*'
-        Test-Path -LiteralPath (Join-Path $profileRoot 'Anniversary Together\mods\SKSE\skse64_loader.exe') | Should -BeTrue
+        Test-Path -LiteralPath (Join-Path $gameRoot 'skse64_loader.exe') | Should -BeTrue
     }
 
     It 'projects untrusted discovered names and metadata as opaque sanitized records' {
@@ -250,10 +251,15 @@ Describe 'setup-laptop safe bootstrap' {
         $audit.domains.archives.items[0].sha256 | Should -Match '^[0-9a-f]{64}$'
     }
 
-    It 'discovers mod manager profiles creations and components from explicit real roots without metadata sidecars' {
+    It 'derives creations only from the cc-prefixed plugin and archive subset at the explicit game root' {
         Copy-Item -LiteralPath (Get-Command pwsh).Source -Destination (Join-Path $toolRoot 'ModOrganizer.exe')
         New-Item -ItemType Directory -Path (Join-Path $profileRoot 'Profile One'), (Join-Path $gameRoot 'Data') -Force | Out-Null
-        Set-Content -LiteralPath (Join-Path $gameRoot 'Data\Creation.esm') -Value 'creation' -NoNewline
+        Set-Content -LiteralPath (Join-Path $gameRoot 'Data\ccApproved.esm') -Value 'creation plugin' -NoNewline
+        Set-Content -LiteralPath (Join-Path $gameRoot 'Data\ccApproved.bsa') -Value 'creation archive' -NoNewline
+        Set-Content -LiteralPath (Join-Path $gameRoot 'Data\Ordinary.esp') -Value 'ordinary plugin' -NoNewline
+        Set-Content -LiteralPath (Join-Path $gameRoot 'Data\Another.esl') -Value 'ordinary light plugin' -NoNewline
+        Set-Content -LiteralPath (Join-Path $gameRoot 'Data\Ordinary.bsa') -Value 'ordinary archive' -NoNewline
+        Set-Content -LiteralPath (Join-Path $gameRoot 'Data\Textures.ba2') -Value 'ordinary archive' -NoNewline
         Set-Content -LiteralPath (Join-Path $profileRoot 'Profile One\NotInstalled.esp') -Value 'profile metadata' -NoNewline
 
         $audit = (Invoke-LaptopSetup -Mode AuditOnly -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot -ToolRoot $toolRoot) | ConvertFrom-Json
@@ -261,24 +267,77 @@ Describe 'setup-laptop safe bootstrap' {
         $audit.domains.modManager.status | Should -Be 'observed'
         $audit.domains.modManager.executable.sha256 | Should -Match '^[0-9a-f]{64}$'
         @($audit.domains.profiles.items).Count | Should -Be 1
-        @($audit.domains.creations.items).Count | Should -Be 1
-        @($audit.domains.plugins.items).Count | Should -Be 1
+        @($audit.domains.creations.items).Count | Should -Be 2
+        @($audit.domains.creations.items.kind | Sort-Object) | Should -Be @('archive', 'plugin')
+        @($audit.domains.plugins.items).Count | Should -Be 3
+        @($audit.domains.archives.items).Count | Should -Be 3
         $audit.domains.addressLibrary.status | Should -Be 'unsupportedPendingIntake'
         $audit.domains.skyrimTogether.status | Should -Be 'unsupportedPendingIntake'
     }
 
-    It 'installs only the hash-pinned official SKSE 2.2.6 7z payload into an atomic isolated profile' {
+    It 'installs the complete official SKSE 2.2.6 runtime payload at its readme-required game paths' {
         $officialSkseArchive | Should -Exist
         $sevenZip | Should -Exist
         $state = (Invoke-LaptopSetup -Mode Apply -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot -ConfirmApply) | ConvertFrom-Json
         $profile = Join-Path $profileRoot 'Anniversary Together'
 
         $state.operation | Should -Be 'approved7zInstall'
-        (Get-FileHash -LiteralPath (Join-Path $profile 'mods\SKSE\skse64_loader.exe') -Algorithm SHA256).Hash.ToLowerInvariant() |
+        (Get-FileHash -LiteralPath (Join-Path $gameRoot 'skse64_loader.exe') -Algorithm SHA256).Hash.ToLowerInvariant() |
             Should -Be '730c2743f6871fbaeb8606c1d3b7a55feca045c3d74858a41b0c6d03cd989fbc'
-        (Get-FileHash -LiteralPath (Join-Path $profile 'mods\SKSE\skse64_1_6_1170.dll') -Algorithm SHA256).Hash.ToLowerInvariant() |
+        (Get-FileHash -LiteralPath (Join-Path $gameRoot 'skse64_1_6_1170.dll') -Algorithm SHA256).Hash.ToLowerInvariant() |
             Should -Be 'c9a2c8a80df6bf2372c5f49468bb2e5ab67786157265b6f29ece9f4eac075d54'
-        @(Get-ChildItem -LiteralPath $profile -Force | Where-Object Name -like '.skyrim-engineering-stage-*').Count | Should -Be 0
+        $scripts = @(Get-ChildItem -LiteralPath (Join-Path $gameRoot 'Data\Scripts') -File -Filter '*.pex')
+        $scripts.Count | Should -Be 62
+        @($scripts.Name) | Should -Contain 'skse.pex'
+        @($scripts.Name) | Should -Contain 'wornobject.pex'
+        @($state.mutations | Where-Object { $_.type -eq 'createFile' -and $_.status -eq 'complete' }).Count | Should -Be 64
+        @(Get-ChildItem -LiteralPath $profile -File -Recurse -Force).Count | Should -Be 0
+        @(Get-ChildItem -LiteralPath $stateRoot -Directory -Force | Where-Object Name -like '.skyrim-engineering-stage-*').Count | Should -Be 0
+    }
+
+    It 'refuses a mismatched existing SKSE destination after confirmation and before any other mutation' {
+        Set-Content -LiteralPath (Join-Path $gameRoot 'skse64_loader.exe') -Value 'user-owned mismatch' -NoNewline
+
+        { Invoke-LaptopSetup -Mode Apply -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot -ConfirmApply } |
+            Should -Throw '*existing*hash*refuse*overwrite*'
+
+        Test-Path -LiteralPath (Join-Path $gameRoot 'skse64_1_6_1170.dll') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $profileRoot 'Anniversary Together') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $stateRoot 'client-a.state.json') | Should -BeFalse
+    }
+
+    It 'reuses an exact existing SKSE file and rollback never deletes it' {
+        & $sevenZip e -y ("-o$gameRoot") -- $officialSkseArchive 'skse64_2_02_06\skse64_loader.exe' | Out-Null
+        $LASTEXITCODE | Should -Be 0
+        $existing = Join-Path $gameRoot 'skse64_loader.exe'
+        $before = (Get-FileHash -LiteralPath $existing -Algorithm SHA256).Hash.ToLowerInvariant()
+
+        $state = (Invoke-LaptopSetup -Mode Apply -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot -ConfirmApply) | ConvertFrom-Json
+        @($state.mutations | Where-Object { $_.relativePath -eq 'skse64_loader.exe' }).status | Should -Be 'preExisting'
+        Invoke-LaptopSetup -Mode Rollback -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot | Out-Null
+
+        Test-Path -LiteralPath $existing -PathType Leaf | Should -BeTrue
+        (Get-FileHash -LiteralPath $existing -Algorithm SHA256).Hash.ToLowerInvariant() | Should -Be $before
+    }
+
+    It 'recovers a crash at the exact post-file-move pre-status boundary' -ForEach @(0, 63) {
+        { Invoke-LaptopSetup -Mode Apply -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot -ConfirmApply -InterruptAfter filePublishedBeforeStatus -InterruptMutationIndex $_ } |
+            Should -Throw '*simulated interruption*filePublishedBeforeStatus*'
+
+        $interrupted = Get-Content -LiteralPath (Join-Path $stateRoot 'client-a.state.json') -Raw | ConvertFrom-Json
+        @($interrupted.mutations | Where-Object status -eq 'publishing').Count | Should -Be 1
+        { Invoke-LaptopSetup -Mode Rollback -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot } | Should -Not -Throw
+        Test-Path -LiteralPath (Join-Path $gameRoot 'skse64_loader.exe') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $gameRoot 'Data\Scripts\wornobject.pex') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $profileRoot 'Anniversary Together') | Should -BeFalse
+    }
+
+    It 'recovers a crash at the exact post-profile-move pre-status boundary' {
+        { Invoke-LaptopSetup -Mode Apply -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot -ConfirmApply -InterruptAfter profilePublishedBeforeStatus } |
+            Should -Throw '*simulated interruption*profilePublishedBeforeStatus*'
+        { Invoke-LaptopSetup -Mode Rollback -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot } | Should -Not -Throw
+        Test-Path -LiteralPath (Join-Path $profileRoot 'Anniversary Together') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $gameRoot 'skse64_loader.exe') | Should -BeFalse
     }
 
     It 'recovers journal-owned staging after interruption at every transaction boundary' -ForEach @(
@@ -288,7 +347,7 @@ Describe 'setup-laptop safe bootstrap' {
             Should -Throw '*simulated interruption*'
         { Invoke-LaptopSetup -Mode Rollback -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot } | Should -Not -Throw
         Test-Path -LiteralPath (Join-Path $profileRoot 'Anniversary Together') | Should -BeFalse
-        @(Get-ChildItem -LiteralPath $profileRoot -Force | Where-Object Name -like '.skyrim-engineering-stage-*').Count | Should -Be 0
+        @(Get-ChildItem -LiteralPath $stateRoot -Force | Where-Object Name -like '.skyrim-engineering-stage-*').Count | Should -Be 0
     }
 
     It 'classifies path matches with bad evidence as unknown and reports root-qualified expected and actual values' {
@@ -332,7 +391,7 @@ Describe 'setup-laptop safe bootstrap' {
         Invoke-LaptopSetup -Mode Rollback -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot | Out-Null
 
         Test-Path -LiteralPath $unrelated -PathType Leaf | Should -BeTrue
-        Test-Path -LiteralPath (Join-Path $profileRoot 'Anniversary Together\mods\SKSE\skse64_loader.exe') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $gameRoot 'skse64_loader.exe') | Should -BeFalse
     }
 
     It 'never removes unrelated files placed at predictable temporary journal names' {
@@ -355,7 +414,7 @@ Describe 'setup-laptop safe bootstrap' {
 
         { Invoke-LaptopSetup -Mode Rollback -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot } |
             Should -Not -Throw
-        Test-Path -LiteralPath (Join-Path $profileRoot 'Anniversary Together\mods\SKSE\skse64_loader.exe') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $gameRoot 'skse64_loader.exe') | Should -BeFalse
     }
 
     It 'refuses missing mismatched and unsupported local package archives before profile mutation' {
@@ -394,6 +453,19 @@ Describe 'setup-laptop safe bootstrap' {
         New-Item -ItemType Directory -Path $nestedProfiles | Out-Null
         { Invoke-LaptopSetup -Mode AuditOnly -GameRoot $gameRoot -ProfileRoot $nestedProfiles -StateDirectory $stateRoot } |
             Should -Throw '*reparse*ancestor*'
+    }
+
+    It 'holds a no-delete-share identity lease across the destination parent mutation window' {
+        $parent = Join-Path $caseRoot 'leased-parent'
+        New-Item -ItemType Directory -Path $parent | Out-Null
+        $lease = Open-DirectoryLease $parent
+        try {
+            { Rename-Item -LiteralPath $parent -NewName 'raced-parent' -ErrorAction Stop } | Should -Throw
+            { $lease.AssertPathStillSame($parent) } | Should -Not -Throw
+        }
+        finally { $lease.Dispose() }
+
+        { Rename-Item -LiteralPath $parent -NewName 'released-parent' -ErrorAction Stop } | Should -Not -Throw
     }
 
     It 'does not let a caller manifest self-authorize arbitrary saves archives or packages' {

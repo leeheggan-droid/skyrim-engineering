@@ -23,8 +23,8 @@
     {
       "id": "skse-runtime",
       "category": "approvedShared",
-      "root": "profile",
-      "relativePath": "mods/SKSE/skse64_1_6_1170.dll",
+      "root": "game",
+      "relativePath": "skse64_1_6_1170.dll",
       "sha256": "c9a2c8a80df6bf2372c5f49468bb2e5ab67786157265b6f29ece9f4eac075d54",
       "version": "2.2.6",
       "catalogId": "skse-ae-2-2-6-official"
@@ -32,8 +32,8 @@
     {
       "id": "skse-loader",
       "category": "approvedShared",
-      "root": "profile",
-      "relativePath": "mods/SKSE/skse64_loader.exe",
+      "root": "game",
+      "relativePath": "skse64_loader.exe",
       "sha256": "730c2743f6871fbaeb8606c1d3b7a55feca045c3d74858a41b0c6d03cd989fbc",
       "version": "2.2.6",
       "catalogId": "skse-ae-2-2-6-official"

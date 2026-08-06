@@ -33,8 +33,11 @@ param(
 
     [string]$ArchiveToolPath = 'C:\Program Files\7-Zip\7z.exe',
 
-    [ValidateSet('journalCreated', 'stageCreated', 'payloadExtracted', 'payloadVerified', 'profilePublished')]
+    [ValidateSet('journalCreated', 'stageCreated', 'payloadExtracted', 'payloadVerified', 'filePublishIntent', 'filePublishedBeforeStatus', 'profilePublishIntent', 'profilePublishedBeforeStatus', 'profilePublished')]
     [string]$InterruptAfter,
+
+    [ValidateRange(-1, 4096)]
+    [int]$InterruptMutationIndex = -1,
 
     [switch]$ConfirmApply
 )
@@ -172,7 +175,7 @@ function Read-PackageCatalog {
     if ($archiveTool.fileName -cne '7z.exe' -or $archiveTool.version -cne '26.02' -or $archiveTool.sha256 -cnotmatch '^[0-9a-f]{64}$') { throw 'Trusted archive tool identity is invalid.' }
     $map = @{}
     foreach ($package in @(Get-RequiredProperty $catalog 'packages' 'Trusted package catalog')) {
-        foreach ($name in @('catalogId', 'component', 'version', 'gameRuntimeVersion', 'archiveFileName', 'archiveType', 'archiveBytes', 'archiveEntryCount', 'archiveSha256', 'mappings', 'publisher', 'provenanceUrl', 'license', 'approved', 'free')) {
+        foreach ($name in @('catalogId', 'component', 'version', 'gameRuntimeVersion', 'archiveFileName', 'archiveType', 'archiveBytes', 'archiveEntryCount', 'archiveSha256', 'mappings', 'prefixInventories', 'publisher', 'provenanceUrl', 'license', 'approved', 'free')) {
             [void](Get-RequiredProperty $package $name 'Trusted package entry')
         }
         if ($package.catalogId -cnotmatch '^[a-z0-9][a-z0-9-]*$' -or $map.ContainsKey([string]$package.catalogId)) {
@@ -189,15 +192,44 @@ function Read-PackageCatalog {
             [string]::IsNullOrWhiteSpace([string]$package.license)) {
             throw 'Trusted package catalog entry violates provenance or approved 7z policy.'
         }
+        $expandedMappings = New-Object Collections.ArrayList
+        foreach ($mapping in @($package.mappings)) { [void]$expandedMappings.Add($mapping) }
+        foreach ($inventory in @($package.prefixInventories)) {
+            foreach ($name in @('archivePrefix', 'destinationRoot', 'destinationPrefix', 'extension', 'entryCount', 'entries')) { [void](Get-RequiredProperty $inventory $name 'Trusted package prefix inventory') }
+            Assert-SafeRelativePath ([string]$inventory.archivePrefix).TrimEnd('/')
+            Assert-SafeRelativePath ([string]$inventory.destinationPrefix).TrimEnd('/')
+            if ($inventory.destinationRoot -cne 'game' -or $inventory.extension -cne '.pex' -or [int]$inventory.entryCount -ne @($inventory.entries).Count -or [int]$inventory.entryCount -le 0) {
+                throw 'Trusted package prefix inventory policy is invalid.'
+            }
+            $prefixNames = @{}
+            foreach ($entry in @($inventory.entries)) {
+                foreach ($name in @('fileName', 'bytes', 'sha256')) { [void](Get-RequiredProperty $entry $name 'Trusted package prefix entry') }
+                Assert-SafeRelativePath ([string]$entry.fileName)
+                if ([IO.Path]::GetExtension([string]$entry.fileName) -cne '.pex' -or [IO.Path]::GetFileName([string]$entry.fileName) -cne [string]$entry.fileName -or
+                    [long]$entry.bytes -le 0 -or $entry.sha256 -cnotmatch '^[0-9a-f]{64}$' -or $prefixNames.ContainsKey(([string]$entry.fileName).ToLowerInvariant())) {
+                    throw 'Trusted package prefix entry is invalid or duplicated.'
+                }
+                $prefixNames[([string]$entry.fileName).ToLowerInvariant()] = $true
+                [void]$expandedMappings.Add([pscustomobject][ordered]@{
+                    archivePath = ([string]$inventory.archivePrefix) + [string]$entry.fileName
+                    destinationRoot = [string]$inventory.destinationRoot
+                    destinationRelativePath = ([string]$inventory.destinationPrefix) + [string]$entry.fileName
+                    bytes = [long]$entry.bytes
+                    sha256 = [string]$entry.sha256
+                })
+            }
+        }
         $mappingPaths = @{}
-        foreach ($mapping in @($package.mappings)) {
-            foreach ($name in @('archivePath', 'destinationRelativePath', 'bytes', 'sha256')) { [void](Get-RequiredProperty $mapping $name 'Trusted package mapping') }
+        foreach ($mapping in @($expandedMappings)) {
+            foreach ($name in @('archivePath', 'destinationRoot', 'destinationRelativePath', 'bytes', 'sha256')) { [void](Get-RequiredProperty $mapping $name 'Trusted package mapping') }
             Assert-SafeRelativePath ([string]$mapping.archivePath)
             Assert-SafeRelativePath ([string]$mapping.destinationRelativePath)
-            if ($mapping.sha256 -cnotmatch '^[0-9a-f]{64}$' -or [long]$mapping.bytes -le 0 -or $mappingPaths.ContainsKey(([string]$mapping.destinationRelativePath).ToLowerInvariant())) { throw 'Trusted package mapping is invalid or duplicated.' }
-            $mappingPaths[([string]$mapping.destinationRelativePath).ToLowerInvariant()] = $mapping
+            $mappingKey = ('{0}|{1}' -f $mapping.destinationRoot, $mapping.destinationRelativePath).ToLowerInvariant()
+            if ($mapping.destinationRoot -cne 'game' -or $mapping.sha256 -cnotmatch '^[0-9a-f]{64}$' -or [long]$mapping.bytes -le 0 -or $mappingPaths.ContainsKey($mappingKey)) { throw 'Trusted package mapping is invalid or duplicated.' }
+            $mappingPaths[$mappingKey] = $mapping
         }
-        if ($mappingPaths.Count -eq 0) { throw 'Trusted package must have explicit entry mappings.' }
+        if ($mappingPaths.Count -ne 64) { throw 'Trusted SKSE package must declare the exact 64-file runtime payload.' }
+        $package.mappings = @($expandedMappings | Sort-Object destinationRoot, destinationRelativePath)
         $package | Add-Member -NotePropertyName mappingByDestination -NotePropertyValue $mappingPaths
         $map[[string]$package.catalogId] = $package
     }
@@ -233,10 +265,10 @@ function Read-CanonicalManifest {
             $catalogId = [string](Get-RequiredProperty $item 'catalogId' 'Canonical approvedShared item')
             if (-not $Catalog.byId.ContainsKey($catalogId)) { throw 'Canonical package is not in the trusted catalog.' }
             $trusted = $Catalog.byId[$catalogId]
-            $mappingKey = ([string]$item.relativePath).ToLowerInvariant()
+            $mappingKey = ('{0}|{1}' -f $item.root, $item.relativePath).ToLowerInvariant()
             if (-not $trusted.mappingByDestination.ContainsKey($mappingKey)) { throw 'Canonical package path is not an approved catalog mapping.' }
             $mapping = $trusted.mappingByDestination[$mappingKey]
-            if ($item.root -cne 'profile' -or $item.sha256 -cne $mapping.sha256 -or $item.version -cne $trusted.version) {
+            if ($item.root -cne $mapping.destinationRoot -or $item.sha256 -cne $mapping.sha256 -or $item.version -cne $trusted.version) {
                 throw 'Canonical package does not exactly match its trusted catalog entry.'
             }
         }
@@ -246,6 +278,36 @@ function Read-CanonicalManifest {
         Assert-SafeRelativePath -Path ([string]$entry)
     }
     return $manifest
+}
+
+function Get-ExpectedInventoryItems {
+    param($Manifest, $Catalog)
+    $result = New-Object Collections.ArrayList
+    $seen = @{}
+    foreach ($item in @($Manifest.items)) {
+        $key = ('{0}|{1}' -f $item.root, $item.relativePath).ToLowerInvariant()
+        $seen[$key] = $true
+        [void]$result.Add($item)
+    }
+    foreach ($catalogId in @($Manifest.items | Where-Object category -eq 'approvedShared' | Select-Object -ExpandProperty catalogId -Unique)) {
+        $package = $Catalog.byId[[string]$catalogId]
+        foreach ($mapping in @($package.mappings)) {
+            $key = ('{0}|{1}' -f $mapping.destinationRoot, $mapping.destinationRelativePath).ToLowerInvariant()
+            if (-not $seen.ContainsKey($key)) {
+                [void]$result.Add([pscustomobject][ordered]@{
+                    id = 'catalog-' + (Get-OpaqueId $key).Substring(7)
+                    category = 'approvedShared'
+                    root = [string]$mapping.destinationRoot
+                    relativePath = [string]$mapping.destinationRelativePath
+                    sha256 = [string]$mapping.sha256
+                    version = [string]$package.version
+                    catalogId = [string]$package.catalogId
+                })
+                $seen[$key] = $true
+            }
+        }
+    }
+    return @($result)
 }
 
 function Get-LocalVersionMap {
@@ -263,10 +325,11 @@ function Get-LocalVersionMap {
 }
 
 function Get-Inventory {
-    param($Manifest, [string]$Game, [string]$Profiles)
+    param($ExpectedItems, [string]$Game, [string]$Profiles)
     $expected = @{}
-    foreach ($item in @($Manifest.items)) { $expected[('{0}|{1}' -f $item.root, $item.relativePath).ToLowerInvariant()] = $item }
+    foreach ($item in @($ExpectedItems)) { $expected[('{0}|{1}' -f $item.root, $item.relativePath).ToLowerInvariant()] = $item }
     $inventory = New-Object Collections.ArrayList
+    $observedGame = @{}
     $data = Join-Path $Game 'Data'
     if (Test-Path -LiteralPath $data -PathType Container) {
         foreach ($file in @(Get-ChildItem -LiteralPath $data -File -Recurse -Force | Sort-Object FullName)) {
@@ -276,6 +339,18 @@ function Get-Inventory {
             $hash = Get-LowerHash $file.FullName
             $version = if ($expected.ContainsKey($key) -and $expected[$key].sha256 -ceq $hash) { [string]$expected[$key].version } else { $null }
             [void]$inventory.Add([pscustomobject]@{ root = 'game'; relativePath = $relative; sha256 = $hash; version = $version; expected = $(if ($expected.ContainsKey($key)) { $expected[$key] } else { $null }); insideIsolated = $false })
+            $observedGame[$key] = $true
+        }
+    }
+    foreach ($item in @($ExpectedItems | Where-Object root -eq 'game')) {
+        $key = ('game|{0}' -f $item.relativePath).ToLowerInvariant()
+        if ($observedGame.ContainsKey($key)) { continue }
+        $path = Join-Path $Game ([string]$item.relativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
+        if (Test-Path -LiteralPath $path -PathType Leaf) {
+            Assert-NoReparseAncestor $path
+            $hash = Get-LowerHash $path
+            $version = if ($item.sha256 -ceq $hash) { [string]$item.version } else { $null }
+            [void]$inventory.Add([pscustomobject]@{ root = 'game'; relativePath = [string]$item.relativePath; sha256 = $hash; version = $version; expected = $item; insideIsolated = $false })
         }
     }
     $isolated = Join-Path $Profiles 'Anniversary Together'
@@ -347,9 +422,150 @@ function Get-ModManagerEvidence {
     return [pscustomobject][ordered]@{ status = 'unavailable'; executable = $null }
 }
 
+function Initialize-PhysicalIdentityApi {
+    if ('SkyrimEngineering.DirectoryLease' -as [type]) { return }
+    Add-Type -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+using Microsoft.Win32.SafeHandles;
+
+namespace SkyrimEngineering {
+    public sealed class DirectoryLease : IDisposable {
+        const uint FILE_READ_ATTRIBUTES = 0x80;
+        const uint DELETE = 0x00010000;
+        const uint FILE_SHARE_READ = 1;
+        const uint FILE_SHARE_WRITE = 2;
+        const uint FILE_SHARE_DELETE = 4;
+        const uint OPEN_EXISTING = 3;
+        const uint FILE_FLAG_BACKUP_SEMANTICS = 0x02000000;
+        const uint FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000;
+        const uint FILE_ATTRIBUTE_REPARSE_POINT = 0x400;
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct BY_HANDLE_FILE_INFORMATION {
+            public uint FileAttributes;
+            public System.Runtime.InteropServices.ComTypes.FILETIME CreationTime;
+            public System.Runtime.InteropServices.ComTypes.FILETIME LastAccessTime;
+            public System.Runtime.InteropServices.ComTypes.FILETIME LastWriteTime;
+            public uint VolumeSerialNumber;
+            public uint FileSizeHigh;
+            public uint FileSizeLow;
+            public uint NumberOfLinks;
+            public uint FileIndexHigh;
+            public uint FileIndexLow;
+        }
+
+        [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+        static extern SafeFileHandle CreateFileW(string name, uint access, uint share, IntPtr security, uint creation, uint flags, IntPtr template);
+        [DllImport("kernel32.dll", SetLastError=true)]
+        static extern bool GetFileInformationByHandle(SafeFileHandle handle, out BY_HANDLE_FILE_INFORMATION info);
+        [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+        static extern uint GetFinalPathNameByHandleW(SafeFileHandle handle, StringBuilder path, uint size, uint flags);
+
+        SafeFileHandle handle;
+        public string Identity { get; private set; }
+        public string FinalPath { get; private set; }
+
+        DirectoryLease(SafeFileHandle value, string identity, string finalPath) {
+            handle = value; Identity = identity; FinalPath = finalPath;
+        }
+
+        static DirectoryLease OpenCore(string path, bool directory, bool permitDeleteShare) {
+            uint share = FILE_SHARE_READ | FILE_SHARE_WRITE | (permitDeleteShare ? FILE_SHARE_DELETE : 0);
+            uint flags = FILE_FLAG_OPEN_REPARSE_POINT | (directory ? FILE_FLAG_BACKUP_SEMANTICS : 0);
+            uint access = FILE_READ_ATTRIBUTES | ((directory && !permitDeleteShare) ? DELETE : 0);
+            SafeFileHandle value = CreateFileW(path, access, share, IntPtr.Zero, OPEN_EXISTING, flags, IntPtr.Zero);
+            if (value.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error(), "Could not open a physical-identity handle.");
+            BY_HANDLE_FILE_INFORMATION info;
+            if (!GetFileInformationByHandle(value, out info)) { int error = Marshal.GetLastWin32Error(); value.Dispose(); throw new Win32Exception(error); }
+            if ((info.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) { value.Dispose(); throw new IOException("A reparse-point mutation target was refused."); }
+            StringBuilder buffer = new StringBuilder(1024);
+            uint length = GetFinalPathNameByHandleW(value, buffer, (uint)buffer.Capacity, 0);
+            if (length == 0 || length >= buffer.Capacity) { int error = Marshal.GetLastWin32Error(); value.Dispose(); throw new Win32Exception(error, "Could not resolve a physical path."); }
+            ulong index = ((ulong)info.FileIndexHigh << 32) | info.FileIndexLow;
+            string identity = info.VolumeSerialNumber.ToString("x8") + ":" + index.ToString("x16");
+            return new DirectoryLease(value, identity, buffer.ToString());
+        }
+
+        public static DirectoryLease Open(string path) { return OpenCore(path, true, false); }
+        public static string ReadFileIdentity(string path) { using (DirectoryLease lease = OpenCore(path, false, true)) { return lease.Identity; } }
+        public static string ReadDirectoryIdentity(string path) { using (DirectoryLease lease = OpenCore(path, true, true)) { return lease.Identity; } }
+        public void AssertPathStillSame(string path) {
+            using (DirectoryLease current = OpenCore(path, true, true)) {
+                if (!String.Equals(Identity, current.Identity, StringComparison.Ordinal) || !String.Equals(FinalPath, current.FinalPath, StringComparison.OrdinalIgnoreCase))
+                    throw new IOException("Mutation parent physical identity changed.");
+            }
+        }
+        public void Dispose() { if (handle != null) { handle.Dispose(); handle = null; } }
+    }
+}
+'@
+}
+
+function Open-DirectoryLease {
+    param([string]$Path)
+    Assert-NoReparseAncestor $Path
+    Initialize-PhysicalIdentityApi
+    return [SkyrimEngineering.DirectoryLease]::Open((Get-NormalizedPath $Path))
+}
+
+function Get-FilePhysicalIdentity {
+    param([string]$Path)
+    Assert-NoReparseAncestor $Path
+    Initialize-PhysicalIdentityApi
+    return [SkyrimEngineering.DirectoryLease]::ReadFileIdentity((Get-NormalizedPath $Path))
+}
+
+function Get-DirectoryPhysicalIdentity {
+    param([string]$Path)
+    Assert-NoReparseAncestor $Path
+    Initialize-PhysicalIdentityApi
+    return [SkyrimEngineering.DirectoryLease]::ReadDirectoryIdentity((Get-NormalizedPath $Path))
+}
+
+function Invoke-GuardedFileMove {
+    param([string]$Source, [string]$Destination)
+    $sourceParent = Split-Path -Parent $Source
+    $destinationParent = Split-Path -Parent $Destination
+    $sourceLease = Open-DirectoryLease $sourceParent
+    $sameParent = [string]::Equals((Get-NormalizedPath $sourceParent), (Get-NormalizedPath $destinationParent), [StringComparison]::OrdinalIgnoreCase)
+    $destinationLease = if ($sameParent) { $sourceLease } else { Open-DirectoryLease $destinationParent }
+    try {
+        if (-not (Test-Path -LiteralPath $Source -PathType Leaf) -or (Test-Path -LiteralPath $Destination)) { throw 'Guarded file publication requires an existing source and a fresh destination.' }
+        $sourceLease.AssertPathStillSame($sourceParent)
+        $destinationLease.AssertPathStillSame($destinationParent)
+        [IO.File]::Move($Source, $Destination)
+        $sourceLease.AssertPathStillSame($sourceParent)
+        $destinationLease.AssertPathStillSame($destinationParent)
+    }
+    finally { if (-not $sameParent) { $destinationLease.Dispose() }; $sourceLease.Dispose() }
+}
+
+function Invoke-GuardedDirectoryMove {
+    param([string]$Source, [string]$Destination)
+    $sourceParent = Split-Path -Parent $Source
+    $destinationParent = Split-Path -Parent $Destination
+    $sourceLease = Open-DirectoryLease $sourceParent
+    $sameParent = [string]::Equals((Get-NormalizedPath $sourceParent), (Get-NormalizedPath $destinationParent), [StringComparison]::OrdinalIgnoreCase)
+    $destinationLease = if ($sameParent) { $sourceLease } else { Open-DirectoryLease $destinationParent }
+    try {
+        if (-not (Test-Path -LiteralPath $Source -PathType Container) -or (Test-Path -LiteralPath $Destination)) { throw 'Guarded directory publication requires an existing source and a fresh destination.' }
+        $sourceLease.AssertPathStillSame($sourceParent)
+        $destinationLease.AssertPathStillSame($destinationParent)
+        [IO.Directory]::Move($Source, $Destination)
+        $sourceLease.AssertPathStillSame($sourceParent)
+        $destinationLease.AssertPathStillSame($destinationParent)
+    }
+    finally { if (-not $sameParent) { $destinationLease.Dispose() }; $sourceLease.Dispose() }
+}
+
 function New-Audit {
     param($Manifest, $Catalog, [string]$ModeName, [string]$Game, [string]$Profiles, [string]$Tools)
-    $inventory = @(Get-Inventory $Manifest $Game $Profiles)
+    $expectedItems = @(Get-ExpectedInventoryItems $Manifest $Catalog)
+    $inventory = @(Get-Inventory $expectedItems $Game $Profiles)
     $actual = @{}
     $categories = [ordered]@{ anniversaryBaseline = New-Object Collections.ArrayList; approvedShared = New-Object Collections.ArrayList; machineSpecific = New-Object Collections.ArrayList; unknownOrIncompatible = New-Object Collections.ArrayList }
     foreach ($entry in $inventory) {
@@ -366,7 +582,7 @@ function New-Audit {
     $extra = New-Object Collections.ArrayList
     $hashDifferent = New-Object Collections.ArrayList
     $versionDifferent = New-Object Collections.ArrayList
-    foreach ($item in @($Manifest.items)) {
+    foreach ($item in @($expectedItems)) {
         $key = ('{0}|{1}' -f $item.root, $item.relativePath).ToLowerInvariant()
         if (-not $actual.ContainsKey($key)) { [void]$missing.Add((New-Difference $item.root $item.relativePath $item.sha256 $null)); continue }
         if ($actual[$key].sha256 -cne $item.sha256) { [void]$hashDifferent.Add((New-Difference $item.root $item.relativePath $item.sha256 $actual[$key].sha256)) }
@@ -390,7 +606,7 @@ function New-Audit {
     $expectedBaseline = @($Manifest.items | Where-Object category -eq 'anniversaryBaseline').Count
     $componentStatus = @{}
     foreach ($component in @('skse', 'addressLibrary', 'skyrimTogether')) {
-        $componentItems = @($Manifest.items | Where-Object {
+        $componentItems = @($expectedItems | Where-Object {
             $_.category -eq 'approvedShared' -and $Catalog.byId[[string]$_.catalogId].component -ceq $component
         })
         $unsupported = @($Catalog.document.unsupportedComponents | Where-Object component -ceq $component)
@@ -400,12 +616,22 @@ function New-Audit {
         ForEach-Object { [pscustomobject][ordered]@{ opaqueId = Get-OpaqueId ("plugin|$($_.root)|$($_.relativePath)|$($_.sha256)"); sha256 = $_.sha256 } })
     $archiveItems = @($inventory | Where-Object { $_.root -eq 'game' -and [IO.Path]::GetExtension($_.relativePath).ToLowerInvariant() -in @('.bsa', '.ba2') } |
         ForEach-Object { [pscustomobject][ordered]@{ opaqueId = Get-OpaqueId ("archive|$($_.root)|$($_.relativePath)|$($_.sha256)"); sha256 = $_.sha256 } })
+    $creationItems = @($inventory | Where-Object {
+        $_.root -eq 'game' -and $_.relativePath -match '(?i)^Data/cc[^/]*\.(esm|esl|esp|bsa|ba2)$'
+    } | ForEach-Object {
+        $extension = [IO.Path]::GetExtension($_.relativePath).ToLowerInvariant()
+        [pscustomobject][ordered]@{
+            opaqueId = Get-OpaqueId ("creation|$($_.root)|$($_.relativePath)|$($_.sha256)")
+            kind = $(if ($extension -in @('.esm', '.esl', '.esp')) { 'plugin' } else { 'archive' })
+            sha256 = $_.sha256
+        }
+    })
     $profileItems = @(Get-ChildItem -LiteralPath $Profiles -Directory -Force | Where-Object Name -ne 'Anniversary Together' | Sort-Object Name | ForEach-Object {
         [pscustomobject][ordered]@{ opaqueId = Get-OpaqueId ('profile|' + $_.FullName); fileCount = @(Get-ChildItem -LiteralPath $_.FullName -File -Recurse -Force).Count }
     })
     $domains = [ordered]@{
         runtime = Get-RuntimeEvidence $Game ([string]$Manifest.runtimeVersion)
-        creations = [pscustomobject][ordered]@{ status = 'observed'; count = $pluginItems.Count; items = $pluginItems }
+        creations = [pscustomobject][ordered]@{ status = 'observed'; count = $creationItems.Count; items = $creationItems }
         plugins = [pscustomobject][ordered]@{ status = 'observed'; count = $pluginItems.Count; items = $pluginItems }
         archives = [pscustomobject][ordered]@{ status = 'observed'; count = $archiveItems.Count; items = $archiveItems }
         skse = $componentStatus.skse
@@ -444,24 +670,26 @@ function New-Plan {
 
 function Get-ExpectedMutations {
     param($Manifest, $Catalog)
-    $directories = @{'Anniversary Together' = $true}
+    $directories = @{ 'profile|Anniversary Together' = [pscustomobject]@{ root = 'profile'; relativePath = 'Anniversary Together' } }
     $files = New-Object Collections.ArrayList
     foreach ($package in @(Get-TrustedPackages $Manifest $Catalog)) {
         foreach ($mapping in @($package.mappings)) {
-            $relative = 'Anniversary Together/' + [string]$mapping.destinationRelativePath
+            $relative = [string]$mapping.destinationRelativePath
             $parent = [IO.Path]::GetDirectoryName($relative.Replace('/', [IO.Path]::DirectorySeparatorChar))
             while (-not [string]::IsNullOrEmpty($parent)) {
                 $portable = Convert-ToPortablePath $parent
-                $directories[$portable] = $true
-                if ($portable -ceq 'Anniversary Together') { break }
+                $directoryKey = ('{0}|{1}' -f $mapping.destinationRoot, $portable).ToLowerInvariant()
+                $directories[$directoryKey] = [pscustomobject]@{ root = [string]$mapping.destinationRoot; relativePath = $portable }
                 $parent = [IO.Path]::GetDirectoryName($parent)
             }
-            [void]$files.Add([pscustomobject][ordered]@{ type = 'createFile'; root = 'profile'; relativePath = $relative; sha256 = [string]$mapping.sha256; catalogId = [string]$package.catalogId; status = 'planned' })
+            [void]$files.Add([pscustomobject][ordered]@{ type = 'createFile'; root = [string]$mapping.destinationRoot; relativePath = $relative; bytes = [long]$mapping.bytes; sha256 = [string]$mapping.sha256; catalogId = [string]$package.catalogId; status = 'planned'; sourceRelativePath = $null; fileIdentity = $null })
         }
     }
     $mutations = New-Object Collections.ArrayList
-    foreach ($directory in @($directories.Keys | Sort-Object { ($_ -split '/').Count }, { $_ })) { [void]$mutations.Add([pscustomobject][ordered]@{ type = 'createDirectory'; root = 'profile'; relativePath = $directory; sha256 = $null; catalogId = $null; status = 'planned' }) }
-    foreach ($file in @($files | Sort-Object relativePath)) { [void]$mutations.Add($file) }
+    foreach ($directory in @($directories.Values | Sort-Object root, { ($_.relativePath -split '/').Count }, relativePath)) {
+        [void]$mutations.Add([pscustomobject][ordered]@{ type = 'createDirectory'; root = [string]$directory.root; relativePath = [string]$directory.relativePath; bytes = $null; sha256 = $null; catalogId = $null; status = 'planned'; sourceRelativePath = $null; fileIdentity = $null })
+    }
+    foreach ($file in @($files | Sort-Object root, relativePath)) { [void]$mutations.Add($file) }
     return @($mutations)
 }
 
@@ -476,19 +704,43 @@ function Write-StateAtomic {
     $transactionId = [guid]::NewGuid().ToString('N')
     $next = $StatePath + '.' + $transactionId + '.next'
     $bytes = (New-Object Text.UTF8Encoding($false)).GetBytes(($State | ConvertTo-Json -Depth 12 -Compress))
-    Write-BytesExclusively $next $bytes
+    $parent = Split-Path -Parent $StatePath
+    $lease = Open-DirectoryLease $parent
+    try {
+        Write-BytesExclusively $next $bytes
+        $nextIdentity = Get-FilePhysicalIdentity $next
+        $lease.AssertPathStillSame($parent)
+    }
+    finally { $lease.Dispose() }
     try {
         if ($CreateNew) {
             if (Test-Path -LiteralPath $StatePath) { throw 'Client state journal already exists.' }
-            [IO.File]::Move($next, $StatePath)
+            Invoke-GuardedFileMove $next $StatePath
         }
         else {
+            $replaceLease = Open-DirectoryLease $parent
             $backup = $StatePath + '.' + $transactionId + '.backup'
-            [IO.File]::Replace($next, $StatePath, $backup)
-            if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup }
+            try {
+                if (-not (Test-Path -LiteralPath $StatePath -PathType Leaf) -or (Test-Path -LiteralPath $backup)) { throw 'Client state journal replacement paths are not in the expected fresh state.' }
+                $replaceLease.AssertPathStillSame($parent)
+                [IO.File]::Replace($next, $StatePath, $backup)
+                $replaceLease.AssertPathStillSame($parent)
+                if (Test-Path -LiteralPath $backup -PathType Leaf) {
+                    $backupIdentity = Get-FilePhysicalIdentity $backup
+                    if ((Get-FilePhysicalIdentity $backup) -ceq $backupIdentity) { [IO.File]::Delete($backup) }
+                    $replaceLease.AssertPathStillSame($parent)
+                }
+            }
+            finally { $replaceLease.Dispose() }
         }
     }
-    finally { if (Test-Path -LiteralPath $next) { Remove-Item -LiteralPath $next } }
+    finally {
+        if ((Test-Path -LiteralPath $next -PathType Leaf) -and (Get-FilePhysicalIdentity $next) -ceq $nextIdentity) {
+            $cleanupLease = Open-DirectoryLease $parent
+            try { $cleanupLease.AssertPathStillSame($parent); [IO.File]::Delete($next); $cleanupLease.AssertPathStillSame($parent) }
+            finally { $cleanupLease.Dispose() }
+        }
+    }
 }
 
 function Assert-SourcePackage {
@@ -537,25 +789,76 @@ function Assert-Official7zLayout {
 }
 
 function Test-QualificationInterrupt {
-    param([string]$Boundary)
-    if ($InterruptAfter -ceq $Boundary) { throw "simulated interruption after $Boundary" }
+    param([string]$Boundary, [int]$MutationIndex = -1)
+    if ($InterruptAfter -ceq $Boundary -and ($InterruptMutationIndex -lt 0 -or $InterruptMutationIndex -eq $MutationIndex)) {
+        throw "simulated interruption after $Boundary"
+    }
 }
 
 function Remove-OwnedStage {
-    param($State, [string]$Profiles)
+    param($State, [string]$States)
     $expectedRelative = '.skyrim-engineering-stage-' + [string]$State.transactionId
     if ($State.stagingRelativePath -cne $expectedRelative -or $State.ownershipToken -cnotmatch '^[a-f0-9]{64}$') { throw 'Journal staging ownership identity is invalid.' }
-    $stage = Join-Path $Profiles $expectedRelative
-    Assert-ContainedPath $Profiles $stage
+    $stage = Join-Path $States $expectedRelative
+    Assert-ContainedPath $States $stage
     if (-not (Test-Path -LiteralPath $stage -PathType Container)) { return }
     Assert-NoReparseTree $stage
     $marker = Join-Path $stage '.skyrim-engineering-owner'
     if (-not (Test-Path -LiteralPath $marker -PathType Leaf) -or (Get-Content -LiteralPath $marker -Raw) -cne $State.ownershipToken) { throw 'Staging ownership marker does not match the journal.' }
-    Remove-Item -LiteralPath $stage -Recurse -Force
+    $lease = Open-DirectoryLease $States
+    try {
+        $lease.AssertPathStillSame($States)
+        Remove-Item -LiteralPath $stage -Recurse -Force
+        $lease.AssertPathStillSame($States)
+    }
+    finally { $lease.Dispose() }
+}
+
+function Get-MutationPath {
+    param($Mutation, [string]$Game, [string]$Profiles)
+    $base = if ($Mutation.root -ceq 'game') { $Game } elseif ($Mutation.root -ceq 'profile') { $Profiles } else { throw 'Mutation root is not allowlisted.' }
+    $path = Join-Path $base ([string]$Mutation.relativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
+    Assert-ContainedPath $base $path
+    return $path
+}
+
+function Set-MutationPreflight {
+    param($Mutation, [string]$Game, [string]$Profiles)
+    $path = Get-MutationPath $Mutation $Game $Profiles
+    Assert-NoReparseAncestor $path
+    if ($Mutation.type -ceq 'createDirectory') {
+        if (Test-Path -LiteralPath $path -PathType Container) { $Mutation.status = 'preExisting'; $Mutation.fileIdentity = Get-DirectoryPhysicalIdentity $path }
+        elseif (Test-Path -LiteralPath $path) { throw 'An existing non-directory destination was refused.' }
+    }
+    else {
+        if (Test-Path -LiteralPath $path -PathType Leaf) {
+            $item = Get-Item -LiteralPath $path -Force
+            if ($item.Length -ne [long]$Mutation.bytes -or (Get-LowerHash $path) -cne $Mutation.sha256) {
+                throw 'An existing SKSE destination has a different hash; Apply must refuse overwrite.'
+            }
+            $Mutation.status = 'preExisting'
+            $Mutation.fileIdentity = Get-FilePhysicalIdentity $path
+        }
+        elseif (Test-Path -LiteralPath $path) { throw 'An existing non-file SKSE destination was refused.' }
+    }
+}
+
+function New-GuardedDirectory {
+    param([string]$Path)
+    $parent = Split-Path -Parent $Path
+    $lease = Open-DirectoryLease $parent
+    try {
+        if (Test-Path -LiteralPath $Path) { throw 'A fresh directory destination was occupied before creation.' }
+        $lease.AssertPathStillSame($parent)
+        [void][IO.Directory]::CreateDirectory($Path)
+        $lease.AssertPathStillSame($parent)
+        Assert-NoReparseAncestor $Path
+    }
+    finally { $lease.Dispose() }
 }
 
 function Invoke-ApplyTransaction {
-    param($Manifest, $Catalog, [string]$ManifestPath, [string]$Profiles, [string]$States, [string]$Cache, [string]$Tool)
+    param($Manifest, $Catalog, [string]$ManifestPath, [string]$Game, [string]$Profiles, [string]$States, [string]$Cache, [string]$Tool)
     if (-not $ConfirmApply) { throw 'Apply requires the separate -ConfirmApply switch.' }
     if (-not $PSCmdlet.ShouldProcess('Anniversary Together', 'Create a new isolated profile from the pinned official SKSE 7z archive')) { return }
     $profile = Join-Path $Profiles 'Anniversary Together'
@@ -569,20 +872,24 @@ function Invoke-ApplyTransaction {
     if ($packages.Count -ne 1 -or $packages[0].component -cne 'skse') { throw 'Only the approved SKSE package may be applied.' }
     foreach ($package in $packages) { [void](Assert-SourcePackage $package $Cache) }
     $toolPath = Assert-ArchiveTool $Catalog $Tool
+    $mutations = @(Get-ExpectedMutations $Manifest $Catalog)
+    foreach ($mutation in $mutations) { Set-MutationPreflight $mutation $Game $Profiles }
     $transactionId = [guid]::NewGuid().ToString('N')
     $ownershipBytes = New-Object byte[] 32
     [Security.Cryptography.RandomNumberGenerator]::Fill($ownershipBytes)
     $ownershipToken = ($ownershipBytes | ForEach-Object { $_.ToString('x2') }) -join ''
     $stageRelative = '.skyrim-engineering-stage-' + $transactionId
-    $state = [pscustomobject][ordered]@{ schema = 'skyrim-engineering.laptop-state/v1'; clientId = $ClientId; status = 'applying'; phase = 'journalCreated'; operation = 'approved7zInstall'; transactionId = $transactionId; stagingRelativePath = $stageRelative; ownershipToken = $ownershipToken; manifestSha256 = Get-LowerHash $ManifestPath; catalogSha256 = $Catalog.sha256; mutations = @(Get-ExpectedMutations $Manifest $Catalog) }
+    $state = [pscustomobject][ordered]@{ schema = 'skyrim-engineering.laptop-state/v1'; clientId = $ClientId; status = 'applying'; phase = 'journalCreated'; operation = 'approved7zInstall'; transactionId = $transactionId; stagingRelativePath = $stageRelative; ownershipToken = $ownershipToken; manifestSha256 = Get-LowerHash $ManifestPath; catalogSha256 = $Catalog.sha256; mutations = $mutations }
     Write-StateAtomic $state $statePath -CreateNew
     Test-QualificationInterrupt 'journalCreated'
     try {
-        $stage = Join-Path $Profiles $stageRelative
-        Assert-NoReparseAncestor $Profiles
+        $stage = Join-Path $States $stageRelative
+        Assert-NoReparseAncestor $States
         if (Test-Path -LiteralPath $stage) { throw 'Transaction staging path unexpectedly exists.' }
-        [void](New-Item -ItemType Directory -Path $stage -ErrorAction Stop)
+        New-GuardedDirectory $stage
         Write-BytesExclusively (Join-Path $stage '.skyrim-engineering-owner') ((New-Object Text.UTF8Encoding($false)).GetBytes($ownershipToken))
+        $publishProfile = Join-Path $stage 'profile-publish'
+        New-GuardedDirectory $publishProfile
         $state.phase = 'stageCreated'; Write-StateAtomic $state $statePath
         Test-QualificationInterrupt 'stageCreated'
 
@@ -600,26 +907,56 @@ function Invoke-ApplyTransaction {
         Assert-NoReparseTree $extractRoot
         $extractedFiles = @(Get-ChildItem -LiteralPath $extractRoot -File -Recurse -Force)
         if ($extractedFiles.Count -ne @($package.mappings).Count) { throw 'Extraction produced unexpected files.' }
-        $publishProfile = Join-Path $stage 'publish\Anniversary Together'
+        $mappingByDestination = @{}
         foreach ($mapping in @($package.mappings)) {
             $source = Join-Path $extractRoot ([string]$mapping.archivePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
             if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or (Get-Item $source).Length -ne [long]$mapping.bytes -or (Get-LowerHash $source) -cne $mapping.sha256) { throw 'Extracted SKSE payload failed its pinned hash or size.' }
-            $destination = Join-Path $publishProfile ([string]$mapping.destinationRelativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
-            $parent = Split-Path -Parent $destination
-            [void](New-Item -ItemType Directory -Path $parent -Force)
-            Assert-NoReparseAncestor $parent
-            [IO.File]::Move($source, $destination)
+            $mappingByDestination[(('{0}|{1}' -f $mapping.destinationRoot, $mapping.destinationRelativePath).ToLowerInvariant())] = [pscustomobject]@{ mapping = $mapping; source = $source }
+            $mutation = @($state.mutations | Where-Object { $_.type -eq 'createFile' -and $_.root -ceq $mapping.destinationRoot -and $_.relativePath -ceq $mapping.destinationRelativePath })[0]
+            if ($mutation.status -ceq 'planned') {
+                $mutation.sourceRelativePath = Convert-ToPortablePath $source.Substring($stage.Length + 1)
+                $mutation.fileIdentity = Get-FilePhysicalIdentity $source
+                $mutation.status = 'staged'
+            }
         }
         $state.phase = 'payloadVerified'; Write-StateAtomic $state $statePath
         Test-QualificationInterrupt 'payloadVerified'
-        Assert-NoReparseTree $publishProfile
-        Assert-NoReparseAncestor $Profiles
-        if (Test-Path -LiteralPath $profile) { throw 'Final profile appeared before atomic publication.' }
-        [IO.Directory]::Move($publishProfile, $profile)
-        foreach ($mutation in @($state.mutations)) { $mutation.status = 'complete' }
+
+        foreach ($mutation in @($state.mutations | Where-Object { $_.type -eq 'createDirectory' -and $_.root -eq 'game' -and $_.status -eq 'planned' } | Sort-Object { ($_.relativePath -split '/').Count }, relativePath)) {
+            $mutation.status = 'creating'; Write-StateAtomic $state $statePath
+            $path = Get-MutationPath $mutation $Game $Profiles
+            New-GuardedDirectory $path
+            $mutation.fileIdentity = Get-DirectoryPhysicalIdentity $path
+            $mutation.status = 'complete'; Write-StateAtomic $state $statePath
+        }
+
+        $publishIndex = 0
+        foreach ($mutation in @($state.mutations | Where-Object type -eq 'createFile' | Sort-Object root, relativePath)) {
+            if ($mutation.status -ceq 'staged') {
+                $source = Join-Path $stage ([string]$mutation.sourceRelativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
+                $destination = Get-MutationPath $mutation $Game $Profiles
+                $mutation.status = 'publishing'; Write-StateAtomic $state $statePath
+                Test-QualificationInterrupt 'filePublishIntent' $publishIndex
+                Invoke-GuardedFileMove $source $destination
+                Test-QualificationInterrupt 'filePublishedBeforeStatus' $publishIndex
+                if ((Get-FilePhysicalIdentity $destination) -cne $mutation.fileIdentity -or (Get-LowerHash $destination) -cne $mutation.sha256) { throw 'Published SKSE file identity or hash changed.' }
+                $mutation.status = 'complete'; Write-StateAtomic $state $statePath
+            }
+            $publishIndex++
+        }
+
+        $profileMutation = @($state.mutations | Where-Object { $_.type -eq 'createDirectory' -and $_.root -eq 'profile' -and $_.relativePath -eq 'Anniversary Together' })[0]
+        $profileMutation.sourceRelativePath = Convert-ToPortablePath $publishProfile.Substring($stage.Length + 1)
+        $profileMutation.fileIdentity = Get-DirectoryPhysicalIdentity $publishProfile
+        $profileMutation.status = 'publishing'; Write-StateAtomic $state $statePath
+        Test-QualificationInterrupt 'profilePublishIntent'
+        Invoke-GuardedDirectoryMove $publishProfile $profile
+        Test-QualificationInterrupt 'profilePublishedBeforeStatus'
+        if ((Get-DirectoryPhysicalIdentity $profile) -cne $profileMutation.fileIdentity) { throw 'Published profile identity changed.' }
+        $profileMutation.status = 'complete'
         $state.phase = 'profilePublished'; Write-StateAtomic $state $statePath
         Test-QualificationInterrupt 'profilePublished'
-        Remove-OwnedStage $state $Profiles
+        Remove-OwnedStage $state $States
         $state.phase = 'cleanupComplete'; $state.status = 'applied'; Write-StateAtomic $state $statePath
         return $state
     }
@@ -642,8 +979,9 @@ function Assert-JournalAllowlist {
     for ($index = 0; $index -lt $expected.Count; $index++) {
         $want = $expected[$index]; $have = $actual[$index]
         $key = ('{0}|{1}' -f $have.type, $have.relativePath).ToLowerInvariant()
-        if ($seen.ContainsKey($key) -or $have.type -cne $want.type -or $have.root -cne 'profile' -or $have.relativePath -cne $want.relativePath -or
-            [string]$have.sha256 -cne [string]$want.sha256 -or [string]$have.catalogId -cne [string]$want.catalogId -or $have.status -cnotin @('planned', 'pending', 'complete')) {
+        if ($seen.ContainsKey($key) -or $have.type -cne $want.type -or $have.root -cne $want.root -or $have.relativePath -cne $want.relativePath -or
+            [string]$have.bytes -cne [string]$want.bytes -or [string]$have.sha256 -cne [string]$want.sha256 -or [string]$have.catalogId -cne [string]$want.catalogId -or
+            $have.status -cnotin @('planned', 'preExisting', 'creating', 'staged', 'publishing', 'complete')) {
             throw 'State journal contains duplicate, altered, or non-allowlisted mutations.'
         }
         $seen[$key] = $true
@@ -652,40 +990,44 @@ function Assert-JournalAllowlist {
 }
 
 function Move-Verify-DeleteFile {
-    param([string]$Path, [string]$ExpectedHash, [string]$Quarantine)
+    param([string]$Path, [string]$ExpectedHash, [string]$ExpectedIdentity, [string]$Quarantine)
     Assert-NoReparseAncestor $Path
     if (Test-Path -LiteralPath $Quarantine) { throw 'Rollback quarantine path is unexpectedly occupied.' }
-    [IO.File]::Move($Path, $Quarantine)
-    $hash = Get-LowerHash $Quarantine
-    if ($hash -cne $ExpectedHash) {
-        if (-not (Test-Path -LiteralPath $Path)) { [IO.File]::Move($Quarantine, $Path) }
-        throw 'A journaled file hash no longer matches; rollback restored it without deletion.'
-    }
-    Remove-Item -LiteralPath $Quarantine
+    if ((Get-LowerHash $Path) -cne $ExpectedHash) { throw 'A journaled file hash no longer matches; rollback refused deletion.' }
+    if ((Get-FilePhysicalIdentity $Path) -cne $ExpectedIdentity) { throw 'A journaled file physical identity no longer matches; rollback refused deletion.' }
+    Invoke-GuardedFileMove $Path $Quarantine
+    if ((Get-LowerHash $Quarantine) -cne $ExpectedHash -or (Get-FilePhysicalIdentity $Quarantine) -cne $ExpectedIdentity) { throw 'Rollback quarantine ownership verification failed.' }
+    $parent = Split-Path -Parent $Quarantine
+    $lease = Open-DirectoryLease $parent
+    try { $lease.AssertPathStillSame($parent); [IO.File]::Delete($Quarantine); $lease.AssertPathStillSame($parent) }
+    finally { $lease.Dispose() }
 }
 
 function Invoke-RollbackTransaction {
-    param($Manifest, $Catalog, [string]$ManifestPath, [string]$Profiles, [string]$States)
+    param($Manifest, $Catalog, [string]$ManifestPath, [string]$Game, [string]$Profiles, [string]$States)
     $statePath = Join-Path $States ($ClientId + '.state.json')
     if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) { throw 'No journaled state exists for this client.' }
     if (-not $PSCmdlet.ShouldProcess('Anniversary Together', 'Rollback only the trusted manifest-derived mutation allowlist')) { return }
     Assert-NoReparseAncestor $statePath
     $state = Read-JsonFile $statePath 'Client state journal'
     $mutations = @(Assert-JournalAllowlist $state $Manifest $Catalog $ManifestPath)
-    Remove-OwnedStage $state $Profiles
-    foreach ($mutation in @($mutations | Where-Object { $_.type -eq 'createFile' -and $_.status -in @('pending', 'complete') } | Sort-Object relativePath -Descending)) {
-        $path = Join-Path $Profiles ([string]$mutation.relativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
-        Assert-ContainedPath $Profiles $path
+    Remove-OwnedStage $state $States
+    foreach ($mutation in @($mutations | Where-Object { $_.type -eq 'createFile' -and $_.status -in @('publishing', 'complete') } | Sort-Object root, relativePath -Descending)) {
+        $path = Get-MutationPath $mutation $Game $Profiles
         if (Test-Path -LiteralPath $path -PathType Leaf) {
-            $quarantine = Join-Path $States ('.' + $ClientId + '.' + $mutation.catalogId + '.rollback.tmp')
-            Move-Verify-DeleteFile $path ([string]$mutation.sha256) $quarantine
+            $quarantine = Join-Path $States ('.' + $ClientId + '.' + [guid]::NewGuid().ToString('N') + '.rollback.tmp')
+            Move-Verify-DeleteFile $path ([string]$mutation.sha256) ([string]$mutation.fileIdentity) $quarantine
         }
     }
-    foreach ($mutation in @($mutations | Where-Object { $_.type -eq 'createDirectory' -and $_.status -in @('pending', 'complete') } | Sort-Object { ([string]$_.relativePath).Length } -Descending)) {
-        $path = Join-Path $Profiles ([string]$mutation.relativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
-        Assert-ContainedPath $Profiles $path
+    foreach ($mutation in @($mutations | Where-Object { $_.type -eq 'createDirectory' -and $_.status -in @('publishing', 'complete') } | Sort-Object { ([string]$_.relativePath).Length } -Descending)) {
+        $path = Get-MutationPath $mutation $Game $Profiles
         Assert-NoReparseAncestor $path
-        if ((Test-Path -LiteralPath $path -PathType Container) -and @(Get-ChildItem -LiteralPath $path -Force).Count -eq 0) { Remove-Item -LiteralPath $path }
+        if ((Test-Path -LiteralPath $path -PathType Container) -and @(Get-ChildItem -LiteralPath $path -Force).Count -eq 0 -and (Get-DirectoryPhysicalIdentity $path) -ceq $mutation.fileIdentity) {
+            $parent = Split-Path -Parent $path
+            $lease = Open-DirectoryLease $parent
+            try { $lease.AssertPathStillSame($parent); [IO.Directory]::Delete($path); $lease.AssertPathStillSame($parent) }
+            finally { $lease.Dispose() }
+        }
     }
     $state.status = 'rolledBack'
     Write-StateAtomic $state $statePath
@@ -696,6 +1038,7 @@ $modeCount = @($AuditOnly, $Plan, $Apply, $Verify, $Rollback | Where-Object { $_
 if ($modeCount -ne 1) { throw 'Select exactly one mode: -AuditOnly, -Plan, -Apply, -Verify, or -Rollback.' }
 if ($ConfirmApply -and -not $Apply) { throw '-ConfirmApply is valid only with -Apply.' }
 if (-not [string]::IsNullOrWhiteSpace($InterruptAfter) -and -not $Apply) { throw '-InterruptAfter is valid only with -Apply qualification tests.' }
+if ($InterruptMutationIndex -ge 0 -and ([string]::IsNullOrWhiteSpace($InterruptAfter) -or -not $Apply)) { throw '-InterruptMutationIndex requires an Apply interruption boundary.' }
 foreach ($inputPath in @($GameRoot, $ProfileRoot, $CanonicalManifest, $StateDirectory)) { Assert-FullyQualifiedLocalPath $inputPath }
 $game = Get-NormalizedPath $GameRoot
 $profiles = Get-NormalizedPath $ProfileRoot
@@ -721,8 +1064,8 @@ if ($Apply) {
     if (-not (Test-Path -LiteralPath $packageCachePath -PathType Container)) { throw 'PackageCache must be an existing explicit directory.' }
     Assert-NoReparseAncestor $packageCachePath
     Assert-DisjointRoots @($game, $profiles, $states, $packageCachePath)
-    if ([IO.Path]::GetPathRoot($profiles) -cne [IO.Path]::GetPathRoot($states)) {
-        throw 'ProfileRoot and StateDirectory must be on the same volume for recoverable rollback.'
+    if ([IO.Path]::GetPathRoot($profiles) -cne [IO.Path]::GetPathRoot($states) -or [IO.Path]::GetPathRoot($game) -cne [IO.Path]::GetPathRoot($states)) {
+        throw 'GameRoot, ProfileRoot, and StateDirectory must be on the same volume for recoverable publication and rollback.'
     }
 }
 Assert-NoReparseAncestor $manifestPath
@@ -732,6 +1075,6 @@ $manifest = Read-CanonicalManifest $manifestPath $catalog
 
 if ($AuditOnly) { New-Audit $manifest $catalog 'auditOnly' $game $profiles $tools | ConvertTo-Json -Depth 10 -Compress }
 elseif ($Plan) { $audit = New-Audit $manifest $catalog 'plan' $game $profiles $tools; New-Plan $manifest $catalog $audit $profiles | ConvertTo-Json -Depth 10 -Compress }
-elseif ($Apply) { $result = Invoke-ApplyTransaction $manifest $catalog $manifestPath $profiles $states $packageCachePath $ArchiveToolPath; if ($null -ne $result) { $result | ConvertTo-Json -Depth 12 -Compress } }
+elseif ($Apply) { $result = Invoke-ApplyTransaction $manifest $catalog $manifestPath $game $profiles $states $packageCachePath $ArchiveToolPath; if ($null -ne $result) { $result | ConvertTo-Json -Depth 12 -Compress } }
 elseif ($Verify) { New-Audit $manifest $catalog 'verify' $game $profiles $tools | ConvertTo-Json -Depth 10 -Compress }
-elseif ($Rollback) { $result = Invoke-RollbackTransaction $manifest $catalog $manifestPath $profiles $states; if ($null -ne $result) { $result | ConvertTo-Json -Depth 12 -Compress } }
+elseif ($Rollback) { $result = Invoke-RollbackTransaction $manifest $catalog $manifestPath $game $profiles $states; if ($null -ne $result) { $result | ConvertTo-Json -Depth 12 -Compress } }
