@@ -116,4 +116,18 @@ Describe 'Skyrim engineering common module' {
         $protected | Should -Match '\[REDACTED:password\]'
         $protected | Should -Match '\[REDACTED:token\]'
     }
+
+    It 'redacts case-insensitive spaced API key labels' {
+        if (-not (Test-Path -LiteralPath $modulePath)) {
+            $false | Should -BeTrue
+            return
+        }
+
+        Import-Module -Force $modulePath
+        $apiKeySecret = ('exposed' + '-spaced-form')
+        $protected = Protect-DiagnosticText -Text ("API   Key : $apiKeySecret")
+
+        $protected | Should -Not -Match ([regex]::Escape($apiKeySecret))
+        $protected | Should -Match '\[REDACTED:token\]'
+    }
 }

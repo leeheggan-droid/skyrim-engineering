@@ -137,7 +137,7 @@ function Protect-DiagnosticText {
     $protected = [regex]::Replace($protected, '(?<![\d.])(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}(?![\d.])', '[REDACTED:ipv4]')
     $protected = [regex]::Replace($protected, '(?im)\bauthorization\b(\s*[:=]\s*)(?:"[^"]*"|''[^'']*''|[^\r\n;]+)', 'Authorization$1[REDACTED:token]')
     $protected = [regex]::Replace($protected, '(?im)\b(password|passwd|pwd)\b(\s*[:=]\s*)(?:"[^"]*"|''[^'']*''|[^\s;]+)', '$1$2[REDACTED:password]')
-    $protected = [regex]::Replace($protected, '(?im)\b(token|api[_-]?key)\b(\s*[:=]\s*)(?:"[^"]*"|''[^'']*''|[^\s;]+)', '$1$2[REDACTED:token]')
+    $protected = [regex]::Replace($protected, '(?im)\b(token|api[\s_-]*key)\b(\s*[:=]\s*)(?:"[^"]*"|''[^'']*''|[^\s;]+)', '$1$2[REDACTED:token]')
     $protected = [regex]::Replace($protected, '(?im)\b(?:Bearer|Basic|Digest|Negotiate)\s+(?:"[^"]*"|''[^'']*''|[A-Za-z0-9._~+/=-]+)', '[REDACTED:token]')
     return $protected
 }
