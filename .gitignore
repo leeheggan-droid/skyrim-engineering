@@ -1,1 +1,10 @@
 .worktrees/
+*.dmp
+*.ess
+*.skse
+*.pex
+diagnostics-private/
+manifests-private/
+TestResults/
+.pester/
+diagnostics-local/
