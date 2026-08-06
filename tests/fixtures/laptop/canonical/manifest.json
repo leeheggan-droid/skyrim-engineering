@@ -1,0 +1,61 @@
+{
+  "schema": "skyrim-engineering.laptop-canonical/v1",
+  "runtimeVersion": "1.6.1170.0",
+  "items": [
+    {
+      "id": "skyrim-master",
+      "category": "anniversaryBaseline",
+      "root": "game",
+      "relativePath": "Data/Skyrim.synthetic.txt",
+      "sha256": "7ac27a5a680d69877d56e43d305a671728d90a48e4c801aebbf013524683b1ea",
+      "version": "1.6.1170.0",
+      "order": 0
+    },
+    {
+      "id": "update-master",
+      "category": "anniversaryBaseline",
+      "root": "game",
+      "relativePath": "Data/Update.synthetic.txt",
+      "sha256": "06da1cae2770bc281e35d9b6452bded80dad534c1967f21b6ac8268829e30046",
+      "version": "1.6.1170.0",
+      "order": 1
+    },
+    {
+      "id": "address-library",
+      "category": "approvedShared",
+      "root": "profile",
+      "relativePath": "mods/Address Library/address-library.synthetic.txt",
+      "sha256": "af6bad1e94ad90a05f6616e16fde743b2407473d35e49ab35eda31bf202e408a",
+      "version": "11",
+      "approved": true,
+      "free": true,
+      "sourceRelativePath": "packages/address-library.synthetic.txt"
+    },
+    {
+      "id": "skse",
+      "category": "approvedShared",
+      "root": "profile",
+      "relativePath": "mods/SKSE/skse.synthetic.txt",
+      "sha256": "dc96e1dd0468f36f659a4be9049ca921b34968702801e922b750b262a20de50e",
+      "version": "2.2.6",
+      "approved": true,
+      "free": true,
+      "sourceRelativePath": "packages/skse.synthetic.txt"
+    },
+    {
+      "id": "skyrim-together",
+      "category": "approvedShared",
+      "root": "profile",
+      "relativePath": "mods/Skyrim Together/skyrim-together.synthetic.txt",
+      "sha256": "3edbfe4b6b08f30aff9f2560a428cb3ffe85c03c1dc72fc5a52a072217dee81e",
+      "version": "1.7.1",
+      "approved": true,
+      "free": true,
+      "sourceRelativePath": "packages/skyrim-together.synthetic.txt"
+    }
+  ],
+  "loadOrder": [
+    "Data/Skyrim.synthetic.txt",
+    "Data/Update.synthetic.txt"
+  ]
+}

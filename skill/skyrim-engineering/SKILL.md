@@ -23,6 +23,7 @@ Load the one reference that owns the task before investigating:
 | Skyrim Together architecture, synchronization, prior art, build surface, or upstream contribution | [references/together-reborn.md](references/together-reborn.md) |
 | Anniversary catalogue, plugin identifier, licensed baseline, or Creation-level compatibility | [references/anniversary-creations.md](references/anniversary-creations.md) |
 | Reproducible build, package provenance, licensing, release, or rollback | [references/build-and-release.md](references/build-and-release.md) |
+| Local skill installation or anonymous laptop audit, plan, apply, verify, or rollback | [references/laptop-setup.md](references/laptop-setup.md) |
 | New, unstable, disputed, or superseded technical claim | [references/research-ledger.md](references/research-ledger.md) |
 
 If a task crosses surfaces, start with the failing boundary, then load only the directly linked secondary reference. Do not preload all references.
