@@ -8,7 +8,7 @@ Every invocation requires explicit game, profile, canonical-manifest, and state 
 
 The canonical manifest separates the licensed `anniversaryBaseline` from `approvedShared` entries. Package policy does not come from that caller-supplied manifest: each shared entry must exactly match the repository-controlled `laptop-package-catalog.json`, including component, version, hash, source, destination, publisher, provenance, licence, and package type. Existing profile content is projected through opaque identifiers; mismatched known paths and unexpected isolated-profile content are `unknownOrIncompatible`.
 
-The current Apply operation is deliberately a `stagedFileScaffold`, not a production SKSE, Address Library, Skyrim Together, mod-manager, executable, or archive installer. Its allowlist contains only original text fixtures used to qualify transaction safety. Archives, executables, saves, plugins, Bethesda content, generic extraction, and caller-self-approved packages are rejected. A future reviewed catalog revision and component-specific installer is required before live components can be installed.
+Apply is a ZIP-only installer for the approved free SKSE, Address Library, and Skyrim Together component set. The user or Codex must first obtain each package from the catalogued publisher URL and place it, under the exact catalogued filename, in an explicit local `PackageCache`. The immutable repository catalog pins archive type and SHA-256, the one allowed entry and its SHA-256, destination, version, publisher, provenance URL, and licence. Missing, mismatched, unknown, multi-entry, traversal, directory, and reparse/symbolic-link archives are refused. The script never downloads, authenticates, executes payloads, changes firewall rules, or handles saves or Bethesda content.
 
 `Apply` refuses any pre-existing `Anniversary Together` directory rather than merging into it. After confirmation it revalidates package hashes and filesystem boundaries, creates destinations exclusively, verifies staged and destination bytes, and retains an atomically updated recoverable journal. It does not perform live downloads.
 
@@ -24,6 +24,7 @@ $game = 'C:\explicit\Steam\Skyrim Special Edition'
 $profiles = 'C:\explicit\ModManager\Profiles'
 $canonical = 'C:\explicit\approved-baseline\manifest.json'
 $state = 'C:\explicit\SkyrimEngineeringState'
+$packageCache = 'C:\explicit\SkyrimEngineeringPackageCache'
 $setup = Join-Path $repo 'skill\skyrim-engineering\scripts\setup-laptop.ps1'
 ```
 
@@ -43,16 +44,16 @@ pwsh -NoProfile -File $setup -Plan -ClientId client-a `
   -CanonicalManifest $canonical -StateDirectory $state
 ```
 
-Apply is a distinct, separately confirmed test-scaffold step. Review every plan action, catalog provenance record, and package hash first. `-ConfirmApply` is mandatory, and PowerShell `ShouldProcess` still presents its normal confirmation unless `-Confirm:$false` is deliberately supplied by an already-authorized operator. Previewing with `-WhatIf` never creates a profile, staged file, or state journal.
+Apply is a distinct, separately confirmed installation step. Review every plan action, catalog provenance record, archive hash, and payload hash first. `-ConfirmApply` is mandatory, and PowerShell `ShouldProcess` still presents its normal confirmation unless `-Confirm:$false` is deliberately supplied by an already-authorized operator. Previewing with `-WhatIf` never creates a profile, installed file, or state journal.
 
 ```powershell
 pwsh -NoProfile -File $setup -Apply -ConfirmApply -WhatIf -ClientId client-a `
   -GameRoot $game -ProfileRoot $profiles `
-  -CanonicalManifest $canonical -StateDirectory $state
+  -CanonicalManifest $canonical -StateDirectory $state -PackageCache $packageCache
 
 pwsh -NoProfile -File $setup -Apply -ConfirmApply -ClientId client-a `
   -GameRoot $game -ProfileRoot $profiles `
-  -CanonicalManifest $canonical -StateDirectory $state
+  -CanonicalManifest $canonical -StateDirectory $state -PackageCache $packageCache
 ```
 
 Verify the anonymous client manifest after Apply:

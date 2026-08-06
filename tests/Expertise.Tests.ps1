@@ -172,6 +172,18 @@ Describe 'Step zero expertise evidence integrity' {
         $release.includesLicensedGameOrModPayload | Should -BeFalse
     }
 
+    It 'constrains the exact release boundary without broad exclusion escape hatches' {
+        $manifest = Get-Content -Raw (Join-Path $repoRoot 'tests\fixtures\package\release-manifest.json') | ConvertFrom-Json
+        @($manifest.excludedControlFiles) | Should -Be @(
+            'tests/fixtures/evidence/artifacts.json'
+            'tests/fixtures/package/release-manifest.json'
+        )
+        @($manifest.scopeRoots).Count | Should -BeGreaterThan 0
+        foreach ($scope in @($manifest.scopeRoots)) {
+            $scope | Should -Match '^(LICENSE|docs/expertise|tests/Expertise.Tests.ps1|tests/QualificationState.Tests.ps1|tests/fixtures/[a-z0-9-]+)$'
+        }
+    }
+
     It 'keeps unresolved qualified reviews explicit without blocking provisional release' {
         $qualification = Get-Content -Raw (Join-Path $repoRoot 'qualification\state.json') | ConvertFrom-Json
         $approvedScopes = @($reviews.reviews | Where-Object { $_.verdict -eq 'PASS' -and $_.approved }).scope | Select-Object -Unique

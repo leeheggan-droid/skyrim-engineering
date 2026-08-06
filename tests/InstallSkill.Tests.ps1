@@ -71,4 +71,15 @@ Describe 'install-skill junction safety' {
         { & $installer -RepositoryRoot '.' -CodexSkillsRoot $skillsRoot -Confirm:$false } | Should -Throw '*fully qualified*'
         { & $installer -RepositoryRoot $repositoryRoot -CodexSkillsRoot '.\skills' -Confirm:$false } | Should -Throw '*fully qualified*'
     }
+
+    It 'preserves a drive root as absolute during normalization' {
+        $tokens = $null; $errors = $null
+        $ast = [Management.Automation.Language.Parser]::ParseFile($installer, [ref]$tokens, [ref]$errors)
+        $definition = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Get-NormalizedPath' }, $true)
+        Invoke-Expression ($definition.Extent.Text -replace '^function\s+Get-NormalizedPath', 'function script:Get-InstallerNormalizedPath' -replace 'Get-NormalizedPath', 'Get-InstallerNormalizedPath')
+        $driveRoot = [IO.Path]::GetPathRoot($TestDrive)
+
+        Get-InstallerNormalizedPath $driveRoot | Should -BeExactly $driveRoot
+    }
+
 }

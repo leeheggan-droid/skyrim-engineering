@@ -26,6 +26,9 @@ param(
     [ValidateNotNullOrEmpty()]
     [string]$StateDirectory,
 
+    [ValidateNotNullOrEmpty()]
+    [string]$PackageCache,
+
     [switch]$ConfirmApply
 )
 
@@ -34,7 +37,10 @@ $ErrorActionPreference = 'Stop'
 
 function Get-NormalizedPath {
     param([Parameter(Mandatory = $true)][string]$Path)
-    return [IO.Path]::GetFullPath($Path).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+    $full = [IO.Path]::GetFullPath($Path)
+    $volumeRoot = [IO.Path]::GetPathRoot($full)
+    if ([string]::Equals($full, $volumeRoot, [StringComparison]::OrdinalIgnoreCase)) { return $volumeRoot }
+    return $full.TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
 }
 
 function Assert-FullyQualifiedLocalPath {
@@ -150,12 +156,13 @@ function Read-PackageCatalog {
         throw 'Trusted package catalog schema is unsupported.'
     }
     $policy = Get-RequiredProperty $catalog 'policy' 'Trusted package catalog'
-    if ($policy.operation -cne 'stagedFileScaffold' -or $policy.archivesSupported -ne $false -or $policy.executablesSupported -ne $false) {
-        throw 'Trusted package catalog policy must remain the non-executable staged-file scaffold.'
+    if ($policy.operation -cne 'approvedZipInstall' -or @($policy.allowedArchiveTypes).Count -ne 1 -or
+        $policy.allowedArchiveTypes[0] -cne 'zip' -or $policy.networkAccess -ne $false -or $policy.executePayloads -ne $false) {
+        throw 'Trusted package catalog policy must permit ZIP extraction only, without network access or payload execution.'
     }
     $map = @{}
     foreach ($package in @(Get-RequiredProperty $catalog 'packages' 'Trusted package catalog')) {
-        foreach ($name in @('catalogId', 'component', 'version', 'sha256', 'sourceRelativePath', 'destinationRelativePath', 'packageType', 'publisher', 'provenance', 'license', 'approved', 'free')) {
+        foreach ($name in @('catalogId', 'component', 'version', 'archiveFileName', 'archiveType', 'archiveSha256', 'entryRelativePath', 'destinationRelativePath', 'sha256', 'publisher', 'provenanceUrl', 'license', 'approved', 'free')) {
             [void](Get-RequiredProperty $package $name 'Trusted package entry')
         }
         if ($package.catalogId -cnotmatch '^[a-z0-9][a-z0-9-]*$' -or $map.ContainsKey([string]$package.catalogId)) {
@@ -163,16 +170,16 @@ function Read-PackageCatalog {
         }
         if ($package.component -cnotin @('skse', 'addressLibrary', 'skyrimTogether')) { throw 'Trusted package component is unsupported.' }
         Assert-SafeVersion -Value ([string]$package.version)
-        Assert-SafeRelativePath -Path ([string]$package.sourceRelativePath)
+        Assert-SafeRelativePath -Path ([string]$package.archiveFileName)
+        Assert-SafeRelativePath -Path ([string]$package.entryRelativePath)
         Assert-SafeRelativePath -Path ([string]$package.destinationRelativePath)
-        if ($package.sha256 -cnotmatch '^[0-9a-f]{64}$' -or $package.packageType -cne 'stagedTextFixture' -or
-            [IO.Path]::GetExtension([string]$package.sourceRelativePath) -cne '.txt' -or
-            [IO.Path]::GetExtension([string]$package.destinationRelativePath) -cne '.txt' -or
+        if ($package.sha256 -cnotmatch '^[0-9a-f]{64}$' -or $package.archiveSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+            $package.archiveType -cne 'zip' -or [IO.Path]::GetExtension([string]$package.archiveFileName) -cne '.zip' -or
             $package.approved -ne $true -or $package.free -ne $true -or
             [string]::IsNullOrWhiteSpace([string]$package.publisher) -or
-            [string]::IsNullOrWhiteSpace([string]$package.provenance) -or
+            -not [Uri]::IsWellFormedUriString([string]$package.provenanceUrl, [UriKind]::Absolute) -or
             [string]::IsNullOrWhiteSpace([string]$package.license)) {
-            throw 'Trusted package catalog entry violates provenance or staged-file policy.'
+            throw 'Trusted package catalog entry violates provenance or approved ZIP policy.'
         }
         $map[[string]$package.catalogId] = $package
     }
@@ -370,13 +377,15 @@ function New-Audit {
         })
         $componentStatus[$component] = [pscustomobject][ordered]@{ status = $(if (@($componentItems).Count -eq 0) { 'notConfigured' } elseif (@($categories.approvedShared | Where-Object { $_.relativePath -in @($componentItems.relativePath) }).Count -eq $componentItems.Count) { 'exact' } else { 'missingOrIncompatible' }) }
     }
-    $pluginCount = @($inventory | Where-Object { [IO.Path]::GetExtension($_.relativePath).ToLowerInvariant() -in @('.esm', '.esl', '.esp') }).Count
-    $archiveCount = @($inventory | Where-Object { [IO.Path]::GetExtension($_.relativePath).ToLowerInvariant() -in @('.bsa', '.ba2') }).Count
+    $pluginItems = @($inventory | Where-Object { [IO.Path]::GetExtension($_.relativePath).ToLowerInvariant() -in @('.esm', '.esl', '.esp') } |
+        ForEach-Object { [pscustomobject][ordered]@{ opaqueId = Get-OpaqueId ("plugin|$($_.root)|$($_.relativePath)|$($_.sha256)"); sha256 = $_.sha256 } })
+    $archiveItems = @($inventory | Where-Object { [IO.Path]::GetExtension($_.relativePath).ToLowerInvariant() -in @('.bsa', '.ba2') } |
+        ForEach-Object { [pscustomobject][ordered]@{ opaqueId = Get-OpaqueId ("archive|$($_.root)|$($_.relativePath)|$($_.sha256)"); sha256 = $_.sha256 } })
     $domains = [ordered]@{
         runtime = Get-RuntimeEvidence $Game ([string]$Manifest.runtimeVersion)
         creations = [pscustomobject][ordered]@{ status = $(if ($exactBaseline -eq $expectedBaseline) { 'exact' } else { 'missingOrIncompatible' }); expectedCount = $expectedBaseline; exactCount = $exactBaseline }
-        plugins = [pscustomobject][ordered]@{ status = 'observed'; count = $pluginCount }
-        archives = [pscustomobject][ordered]@{ status = 'observed'; count = $archiveCount }
+        plugins = [pscustomobject][ordered]@{ status = 'observed'; count = $pluginItems.Count; items = $pluginItems }
+        archives = [pscustomobject][ordered]@{ status = 'observed'; count = $archiveItems.Count; items = $archiveItems }
         skse = $componentStatus.skse
         addressLibrary = $componentStatus.addressLibrary
         skyrimTogether = $componentStatus.skyrimTogether
@@ -404,9 +413,9 @@ function New-Plan {
     if (-not (Test-Path -LiteralPath (Join-Path $Profiles 'Anniversary Together'))) { [void]$actions.Add([pscustomobject][ordered]@{ type = 'createProfile'; relativePath = 'Anniversary Together' }) }
     $missingPaths = @($Audit.differences.missing.relativePath)
     foreach ($package in @(Get-TrustedPackages $Manifest $Catalog)) {
-        if ($package.destinationRelativePath -in $missingPaths) { [void]$actions.Add([pscustomobject][ordered]@{ type = 'stageApprovedFile'; catalogId = $package.catalogId; component = $package.component; relativePath = $package.destinationRelativePath; version = $package.version; sha256 = $package.sha256 }) }
+        if ($package.destinationRelativePath -in $missingPaths) { [void]$actions.Add([pscustomobject][ordered]@{ type = 'installApprovedZipEntry'; catalogId = $package.catalogId; component = $package.component; archiveFileName = $package.archiveFileName; archiveSha256 = $package.archiveSha256; relativePath = $package.destinationRelativePath; version = $package.version; sha256 = $package.sha256 }) }
     }
-    return [pscustomobject][ordered]@{ schema = 'skyrim-engineering.laptop-plan/v1'; clientId = $ClientId; operation = 'stagedFileScaffold'; actions = @($actions); differences = $Audit.differences }
+    return [pscustomobject][ordered]@{ schema = 'skyrim-engineering.laptop-plan/v1'; clientId = $ClientId; operation = 'approvedZipInstall'; actions = @($actions); differences = $Audit.differences }
 }
 
 function Get-ExpectedMutations {
@@ -438,8 +447,8 @@ function Write-BytesExclusively {
 
 function Write-StateAtomic {
     param($State, [string]$StatePath, [switch]$CreateNew)
-    $next = $StatePath + '.next'
-    if (Test-Path -LiteralPath $next) { throw 'A stale atomic journal update exists; rollback or inspect before continuing.' }
+    $transactionId = [guid]::NewGuid().ToString('N')
+    $next = $StatePath + '.' + $transactionId + '.next'
     $bytes = (New-Object Text.UTF8Encoding($false)).GetBytes(($State | ConvertTo-Json -Depth 12 -Compress))
     Write-BytesExclusively $next $bytes
     try {
@@ -448,8 +457,7 @@ function Write-StateAtomic {
             [IO.File]::Move($next, $StatePath)
         }
         else {
-            $backup = $StatePath + '.backup'
-            if (Test-Path -LiteralPath $backup) { throw 'A stale atomic journal backup exists.' }
+            $backup = $StatePath + '.' + $transactionId + '.backup'
             [IO.File]::Replace($next, $StatePath, $backup)
             if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup }
         }
@@ -458,28 +466,63 @@ function Write-StateAtomic {
 }
 
 function Assert-SourcePackage {
-    param($Package, [string]$ManifestDirectory)
-    $source = Join-Path $ManifestDirectory ([string]$Package.sourceRelativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
-    Assert-ContainedPath $ManifestDirectory $source
+    param($Package, [string]$Cache)
+    if ($Package.archiveType -cne 'zip') { throw "Unsupported archive type '$($Package.archiveType)'; only ZIP is allowed." }
+    $source = Join-Path $Cache ([string]$Package.archiveFileName).Replace('/', [IO.Path]::DirectorySeparatorChar)
+    Assert-ContainedPath $Cache $source
     Assert-NoReparseAncestor $source
-    if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or (Get-LowerHash $source) -cne $Package.sha256) { throw 'Trusted catalog package source is missing or failed its pinned hash.' }
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw 'Required package cache archive is missing.' }
+    if ((Get-LowerHash $source) -cne $Package.archiveSha256) { throw 'Package cache archive failed its pinned archive hash.' }
     return $source
 }
 
+function Write-ApprovedZipEntry {
+    param($Package, [string]$ArchivePath, [string]$Destination)
+    Add-Type -AssemblyName System.IO.Compression
+    $stream = New-Object IO.FileStream($ArchivePath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+    try {
+        $zip = New-Object IO.Compression.ZipArchive($stream, [IO.Compression.ZipArchiveMode]::Read, $false)
+        try {
+            $files = @($zip.Entries | Where-Object { -not [string]::IsNullOrEmpty($_.Name) })
+            if ($files.Count -ne 1 -or $zip.Entries.Count -ne 1) { throw 'ZIP archive contains unknown or directory entries.' }
+            $entry = $files[0]
+            $entryPath = Convert-ToPortablePath ([string]$entry.FullName)
+            Assert-SafeRelativePath $entryPath
+            if ($entryPath -cne [string]$Package.entryRelativePath) { throw 'ZIP archive entry is not on the trusted allowlist.' }
+            $unixType = (($entry.ExternalAttributes -shr 16) -band 0xF000)
+            $dosAttributes = ($entry.ExternalAttributes -band 0xFFFF)
+            if ($unixType -eq 0xA000 -or ($dosAttributes -band [int][IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw 'ZIP archive reparse or symbolic-link entry was refused.'
+            }
+            Assert-NoReparseAncestor (Split-Path -Parent $Destination)
+            if (Test-Path -LiteralPath $Destination) { throw 'A profile destination appeared before exclusive file creation.' }
+            $input = $entry.Open()
+            $output = New-Object IO.FileStream($Destination, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+            try { $input.CopyTo($output); $output.Flush($true) } finally { $input.Dispose(); $output.Dispose() }
+            if ((Get-LowerHash $Destination) -cne $Package.sha256) {
+                Remove-Item -LiteralPath $Destination
+                throw 'Extracted package entry failed its pinned payload hash.'
+            }
+        }
+        finally { $zip.Dispose() }
+    }
+    finally { $stream.Dispose() }
+}
+
 function Invoke-ApplyTransaction {
-    param($Manifest, $Catalog, [string]$ManifestPath, [string]$Profiles, [string]$States)
+    param($Manifest, $Catalog, [string]$ManifestPath, [string]$Profiles, [string]$States, [string]$Cache)
     if (-not $ConfirmApply) { throw 'Apply requires the separate -ConfirmApply switch.' }
-    if (-not $PSCmdlet.ShouldProcess('Anniversary Together', 'Create a new isolated profile and stage trusted text fixtures')) { return }
+    if (-not $PSCmdlet.ShouldProcess('Anniversary Together', 'Create a new isolated profile from pinned approved ZIP archives')) { return }
     $profile = Join-Path $Profiles 'Anniversary Together'
     $statePath = Join-Path $States ($ClientId + '.state.json')
-    $manifestDirectory = Split-Path -Parent $ManifestPath
-    Assert-NoReparseAncestor $manifestDirectory
+    if ([string]::IsNullOrWhiteSpace($Cache)) { throw 'Apply requires an explicit -PackageCache.' }
+    Assert-NoReparseAncestor $Cache
     Assert-NoReparseAncestor $States
     if (Test-Path -LiteralPath $profile) { throw 'Anniversary Together already exists; Apply refuses to merge into a pre-existing profile.' }
     if (Test-Path -LiteralPath $statePath) { throw 'Client state journal already exists; use Rollback for an applying or applied transaction.' }
     $packages = @(Get-TrustedPackages $Manifest $Catalog)
-    foreach ($package in $packages) { [void](Assert-SourcePackage $package $manifestDirectory) }
-    $state = [pscustomobject][ordered]@{ schema = 'skyrim-engineering.laptop-state/v1'; clientId = $ClientId; status = 'applying'; operation = 'stagedFileScaffold'; manifestSha256 = Get-LowerHash $ManifestPath; catalogSha256 = $Catalog.sha256; mutations = @(Get-ExpectedMutations $Manifest $Catalog) }
+    foreach ($package in $packages) { [void](Assert-SourcePackage $package $Cache) }
+    $state = [pscustomobject][ordered]@{ schema = 'skyrim-engineering.laptop-state/v1'; clientId = $ClientId; status = 'applying'; operation = 'approvedZipInstall'; manifestSha256 = Get-LowerHash $ManifestPath; catalogSha256 = $Catalog.sha256; mutations = @(Get-ExpectedMutations $Manifest $Catalog) }
     Write-StateAtomic $state $statePath -CreateNew
     try {
         for ($index = 0; $index -lt $state.mutations.Count; $index++) {
@@ -495,18 +538,8 @@ function Invoke-ApplyTransaction {
             }
             else {
                 $package = $Catalog.byId[[string]$mutation.catalogId]
-                $source = Assert-SourcePackage $package $manifestDirectory
-                $payloadTemp = Join-Path $States ('.' + $ClientId + '.' + $package.catalogId + '.payload.tmp')
-                if (Test-Path -LiteralPath $payloadTemp) { throw 'A stale staged payload exists; rollback before continuing.' }
-                $sourceStream = New-Object IO.FileStream($source, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
-                $tempStream = New-Object IO.FileStream($payloadTemp, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
-                try { $sourceStream.CopyTo($tempStream); $tempStream.Flush($true) } finally { $sourceStream.Dispose(); $tempStream.Dispose() }
-                if ((Get-LowerHash $payloadTemp) -cne $package.sha256) { throw 'Staged payload failed post-copy hash verification.' }
-                Assert-NoReparseAncestor (Split-Path -Parent $path)
-                [void](Assert-SourcePackage $package $manifestDirectory)
-                if (Test-Path -LiteralPath $path) { throw 'A profile destination appeared before exclusive file creation.' }
-                [IO.File]::Move($payloadTemp, $path)
-                if ((Get-LowerHash $path) -cne $package.sha256) { throw 'Installed staged file failed post-copy hash verification.' }
+                $source = Assert-SourcePackage $package $Cache
+                Write-ApprovedZipEntry $package $source $path
             }
             $mutation.status = 'complete'
             Write-StateAtomic $state $statePath
@@ -521,7 +554,7 @@ function Invoke-ApplyTransaction {
 function Assert-JournalAllowlist {
     param($State, $Manifest, $Catalog, [string]$ManifestPath)
     if ($State.schema -cne 'skyrim-engineering.laptop-state/v1' -or $State.clientId -cne $ClientId -or $State.status -cnotin @('applying', 'applied') -or
-        $State.operation -cne 'stagedFileScaffold' -or $State.manifestSha256 -cne (Get-LowerHash $ManifestPath) -or $State.catalogSha256 -cne $Catalog.sha256) {
+        $State.operation -cne 'approvedZipInstall' -or $State.manifestSha256 -cne (Get-LowerHash $ManifestPath) -or $State.catalogSha256 -cne $Catalog.sha256) {
         throw 'State journal identity or trusted manifest binding is invalid.'
     }
     $expected = @(Get-ExpectedMutations $Manifest $Catalog)
@@ -568,8 +601,6 @@ function Invoke-RollbackTransaction {
             $quarantine = Join-Path $States ('.' + $ClientId + '.' + $mutation.catalogId + '.rollback.tmp')
             Move-Verify-DeleteFile $path ([string]$mutation.sha256) $quarantine
         }
-        $payloadTemp = Join-Path $States ('.' + $ClientId + '.' + $mutation.catalogId + '.payload.tmp')
-        if (Test-Path -LiteralPath $payloadTemp -PathType Leaf) { Remove-Item -LiteralPath $payloadTemp }
     }
     foreach ($mutation in @($mutations | Where-Object { $_.type -eq 'createDirectory' -and $_.status -in @('pending', 'complete') } | Sort-Object { ([string]$_.relativePath).Length } -Descending)) {
         $path = Join-Path $Profiles ([string]$mutation.relativePath).Replace('/', [IO.Path]::DirectorySeparatorChar)
@@ -577,8 +608,6 @@ function Invoke-RollbackTransaction {
         Assert-NoReparseAncestor $path
         if ((Test-Path -LiteralPath $path -PathType Container) -and @(Get-ChildItem -LiteralPath $path -Force).Count -eq 0) { Remove-Item -LiteralPath $path }
     }
-    $next = $statePath + '.next'
-    if (Test-Path -LiteralPath $next -PathType Leaf) { Remove-Item -LiteralPath $next }
     $state.status = 'rolledBack'
     Write-StateAtomic $state $statePath
     return $state
@@ -597,6 +626,17 @@ foreach ($root in @($game, $profiles, $states)) {
     Assert-NoReparseAncestor $root
 }
 Assert-DisjointRoots @($game, $profiles, $states)
+if ($Apply) {
+    if ([string]::IsNullOrWhiteSpace($PackageCache)) { throw 'Apply requires an explicit -PackageCache.' }
+    Assert-FullyQualifiedLocalPath $PackageCache
+    $packageCachePath = Get-NormalizedPath $PackageCache
+    if (-not (Test-Path -LiteralPath $packageCachePath -PathType Container)) { throw 'PackageCache must be an existing explicit directory.' }
+    Assert-NoReparseAncestor $packageCachePath
+    Assert-DisjointRoots @($game, $profiles, $states, $packageCachePath)
+    if ([IO.Path]::GetPathRoot($profiles) -cne [IO.Path]::GetPathRoot($states)) {
+        throw 'ProfileRoot and StateDirectory must be on the same volume for recoverable rollback.'
+    }
+}
 Assert-NoReparseAncestor $manifestPath
 $catalogPath = Get-NormalizedPath (Join-Path $PSScriptRoot '..\references\laptop-package-catalog.json')
 $catalog = Read-PackageCatalog $catalogPath
@@ -604,6 +644,6 @@ $manifest = Read-CanonicalManifest $manifestPath $catalog
 
 if ($AuditOnly) { New-Audit $manifest $catalog 'auditOnly' $game $profiles | ConvertTo-Json -Depth 10 -Compress }
 elseif ($Plan) { $audit = New-Audit $manifest $catalog 'plan' $game $profiles; New-Plan $manifest $catalog $audit $profiles | ConvertTo-Json -Depth 10 -Compress }
-elseif ($Apply) { $result = Invoke-ApplyTransaction $manifest $catalog $manifestPath $profiles $states; if ($null -ne $result) { $result | ConvertTo-Json -Depth 12 -Compress } }
+elseif ($Apply) { $result = Invoke-ApplyTransaction $manifest $catalog $manifestPath $profiles $states $packageCachePath; if ($null -ne $result) { $result | ConvertTo-Json -Depth 12 -Compress } }
 elseif ($Verify) { New-Audit $manifest $catalog 'verify' $game $profiles | ConvertTo-Json -Depth 10 -Compress }
 elseif ($Rollback) { $result = Invoke-RollbackTransaction $manifest $catalog $manifestPath $profiles $states; if ($null -ne $result) { $result | ConvertTo-Json -Depth 12 -Compress } }

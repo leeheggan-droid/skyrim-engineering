@@ -25,9 +25,24 @@ $m = Get-Content -Raw -LiteralPath $Manifest | ConvertFrom-Json
 if ($m.algorithm -ne 'SHA256' -or $m.license.spdx -ne 'GPL-3.0-or-later') { throw 'Manifest algorithm or licence mismatch' }
 $listed = @($m.files.path)
 for($i=1;$i -lt $listed.Count;$i++){ if([StringComparer]::Ordinal.Compare($listed[$i-1],$listed[$i]) -ge 0){ throw 'Manifest paths are not unique ordinal-sort order' } }
-$discovered = @(@(Get-Item (Join-Path $root 'LICENSE')) + @(Get-ChildItem (Join-Path $root 'docs\expertise'), (Join-Path $root 'tests') -Recurse -File) |
-    ForEach-Object { [IO.Path]::GetRelativePath($root, $_.FullName).Replace('\','/') } |
-    Where-Object { $_ -notin @($m.excludedControlFiles) })
+$allowedExclusions = @('tests/fixtures/evidence/artifacts.json', 'tests/fixtures/package/release-manifest.json')
+if (@($m.excludedControlFiles).Count -ne $allowedExclusions.Count -or @(Compare-Object @($m.excludedControlFiles) $allowedExclusions -CaseSensitive).Count) {
+    throw 'Only the two self-referential control manifests may be excluded'
+}
+$discovered = New-Object Collections.ArrayList
+foreach ($scope in @($m.scopeRoots)) {
+    if ([string]::IsNullOrWhiteSpace($scope) -or [IO.Path]::IsPathRooted($scope) -or $scope.Contains('\') -or $scope.Contains(':') -or $scope -match '(^|/)\.\.?(?:/|$)') {
+        throw 'Release scope roots must be safe repository-relative paths'
+    }
+    $scopePath = Join-Path $root $scope
+    if (-not (Test-Path -LiteralPath $scopePath)) { throw "Release scope root does not exist: $scope" }
+    $items = if (Test-Path -LiteralPath $scopePath -PathType Container) { @(Get-ChildItem -LiteralPath $scopePath -Recurse -File) } else { @(Get-Item -LiteralPath $scopePath) }
+    foreach ($item in $items) {
+        $relative = [IO.Path]::GetRelativePath($root, $item.FullName).Replace('\','/')
+        if ($relative -notin @($m.excludedControlFiles)) { [void]$discovered.Add($relative) }
+    }
+}
+$discovered = @($discovered | Sort-Object -Unique)
 if ($discovered.Count -ne $listed.Count -or @(Compare-Object $discovered $listed -CaseSensitive).Count) { throw 'Manifest is not the exact release file set' }
 if (Test-Path -LiteralPath $destinationFull) { throw 'Destination already exists' }
 New-Item -ItemType Directory -Path $destinationFull | Out-Null

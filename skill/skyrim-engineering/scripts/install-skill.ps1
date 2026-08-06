@@ -13,7 +13,10 @@ $ErrorActionPreference = 'Stop'
 
 function Get-NormalizedPath {
     param([Parameter(Mandatory = $true)][string]$Path)
-    return [IO.Path]::GetFullPath($Path).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+    $full = [IO.Path]::GetFullPath($Path)
+    $volumeRoot = [IO.Path]::GetPathRoot($full)
+    if ([string]::Equals($full, $volumeRoot, [StringComparison]::OrdinalIgnoreCase)) { return $volumeRoot }
+    return $full.TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
 }
 
 function Assert-FullyQualifiedLocalPath {
@@ -81,10 +84,21 @@ if ($PSCmdlet.ShouldProcess($target, "Create junction to '$source'")) {
     Assert-NoReparseAncestor -Path $skillsRoot
     if (Test-Path -LiteralPath $target) { throw 'Installation target appeared before junction creation and was refused.' }
     $created = New-Item -ItemType Junction -Path $target -Target $source
-    $verified = Get-Item -LiteralPath $target -Force
-    if ($verified.LinkType -ne 'Junction' -or
-        -not [string]::Equals((Get-NormalizedPath -Path ([string]$verified.Target)), $source, [StringComparison]::OrdinalIgnoreCase)) {
-        throw 'Created junction did not resolve to the exact requested skill source.'
+    try {
+        $verified = Get-Item -LiteralPath $target -Force
+        if ($verified.LinkType -ne 'Junction' -or
+            -not [string]::Equals((Get-NormalizedPath -Path ([string]$verified.Target)), $source, [StringComparison]::OrdinalIgnoreCase)) {
+            throw 'Created junction did not resolve to the exact requested skill source.'
+        }
+    }
+    catch {
+        $current = if (Test-Path -LiteralPath $target) { Get-Item -LiteralPath $target -Force } else { $null }
+        $createdWasRequested = $created.LinkType -eq 'Junction' -and
+            [string]::Equals((Get-NormalizedPath -Path ([string]$created.Target)), $source, [StringComparison]::OrdinalIgnoreCase)
+        $currentIsCreated = $null -ne $current -and $current.LinkType -eq 'Junction' -and
+            [string]::Equals((Get-NormalizedPath -Path ([string]$current.Target)), $source, [StringComparison]::OrdinalIgnoreCase)
+        if ($createdWasRequested -and $currentIsCreated) { Remove-Item -LiteralPath $target -Force }
+        throw
     }
     Write-Output 'Skyrim Engineering skill junction installed and verified.'
 }
