@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "inputsOnly": true,
+  "cases": [
+    {
+      "id": "symbolized-null-call",
+      "input": {"exception": "0xc0000005", "instruction": "call qword ptr [rax]", "rax": "0x0"}
+    },
+    {
+      "id": "missing-master",
+      "input": {"plugin": "ExamplePatch.esp", "declaredMasters": ["Skyrim.esm", "Absent.esm"], "available": ["Skyrim.esm"]}
+    },
+    {
+      "id": "profile-parity",
+      "input": {"hostA": ["Skyrim.esm", "Update.esm", "Example.esp"], "hostB": ["Skyrim.esm", "Update.esm"]}
+    }
+  ]
+}

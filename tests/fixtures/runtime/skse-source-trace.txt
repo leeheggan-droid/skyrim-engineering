@@ -1,0 +1,23 @@
+source=https://github.com/ianpatt/skse64
+tag=v2.2.6
+commit=9398d04592a7eb9d754f2997701116df1022f1b4
+checkout-status=clean
+
+skse64/PluginManager.cpp
+sha256=C310F7082AED9CAE1DDFBF47AFFC39C4942C835EAB9620740972D4278897135A
+lines=190-224 QueryInterface exposes serialization and messaging interfaces
+lines=263-320 plugin discovery reads SKSEPlugin_Version resources before load
+lines=323-349 CheckAddressLibrary selects Data/SKSE/Plugins/versionlib-<exact runtime>.bin
+lines=352-380 plugin DLL load resolves SKSEPlugin_Load
+lines=484-565 compatibility checks version independence, address library, and structure compatibility
+
+skse64_common/Relocation.cpp
+sha256=050655BE00CFF2FE688997F5F6D49AABAC5040FEC2B3C6846CACAF36CC71EA79
+lines=23-30 RelocationManager captures the executable module base used by relocations
+
+skse64/Hooks_SaveLoad.cpp
+sha256=28BE2DF90E660FC5CA732DEC12FEA65EC22945A2CE12C5D5D7285B77E91AE383
+lines=12-52 save/load hooks set serialization save names and dispatch lifecycle messages
+lines=115-123 delete/new-game paths dispatch messages and serialization cleanup
+
+conclusion=SKSE selects an exact runtime address database, validates plugin metadata, then loads the DLL and exposes lifecycle interfaces; the local selector test proves only isolated file selection and never proves ABI compatibility by itself.

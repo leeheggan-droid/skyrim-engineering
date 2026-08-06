@@ -1,0 +1,46 @@
+CDB raw sanitized transcript — pinned pre-fix reproduction — 2026-08-06
+
+parent-commit=9d81ef07d68e4bb2bd94fca246e798a564b7fb92
+TiltedReverse-commit=55ee3f29c62fea247148e57b94ec4941055139ed
+mode=releasedbg, x64, original TiltedReverse source, DLL_r absent
+TiltedReverse_Tests.exe length=830976
+TiltedReverse_Tests.exe SHA256=5B62AE3666D35971442D076B82C722AAB69C5FFBC635ABC2E0E249125CF154FE
+TiltedReverse_Tests.pdb length=11268096
+TiltedReverse_Tests.pdb SHA256=BFB6698C326C41CB205C67DC961E66A3E416F66393E68827B621B45BB5FBFA47
+
+Microsoft (R) Windows Debugger Version 10.0.29617.1000 AMD64
+CommandLine: .\TiltedReverse_Tests.exe
+Symbol search path is: <isolated-build>\releasedbg
+ModLoad: <base> <end> TiltedReverse_Tests.exe
+(process.thread): Access violation - code c0000005 (first chance)
+
+start end module name
+<base> <end> TiltedReverse_Tests C (private pdb symbols)
+    <isolated-build>\releasedbg\TiltedReverse_Tests.pdb
+    Loaded symbol image file: <isolated-build>\releasedbg\TiltedReverse_Tests.exe
+    Image name: TiltedReverse_Tests.exe
+    ImageSize: 000D7000
+
+Child-SP RetAddr Call Site
+<sp0> <ret0> 0x0
+<sp1> <ret1> TiltedReverse_Tests!C_A_T_C_H_T_E_S_T_0(void)+0x141
+    [<checkout>\Libraries\TiltedReverse\Code\tests\src\reverse.cpp @ 39]
+<sp2> <ret2> TiltedReverse_Tests!Catch::RunContext::invokeActiveTestCase(void)+0x59
+<sp3> <ret3> TiltedReverse_Tests!Catch::RunContext::runCurrentTest+0x2ac
+<sp4> <ret4> TiltedReverse_Tests!Catch::RunContext::runTest+0x149
+<sp5> <ret5> TiltedReverse_Tests!Catch::Session::runInternal(void)+0xb4
+<sp6> <ret6> TiltedReverse_Tests!main(void)+0x81
+    [<checkout>\Libraries\TiltedReverse\Code\tests\src\main.cpp @ 7]
+
+frame 1 registers:
+rax=0000000000000000 rdx=0000000000000000
+TiltedReverse_Tests!C_A_T_C_H_T_E_S_T_0+0x141
+source=<checkout>\Libraries\TiltedReverse\Code\tests\src\reverse.cpp:39
+
+Observation: matching private symbols place the null execute in the pre-fix test
+at reverse.cpp:39. Hypothesis: release/releasedbg expects DLL_r, but the parent
+xmake graph omitted its legacy fixture target. The frozen patch adds that target
+and explicit null assertions; the retained full build evidence proves both
+installed suites after the fix. Machine/user paths and volatile addresses are
+normalized; module, symbol status, exception, stack, source line, build identity,
+and exact EXE/PDB hashes are retained.

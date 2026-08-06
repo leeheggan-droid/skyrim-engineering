@@ -25,13 +25,13 @@
                   },
                   {
                       "path":  "docs/expertise/assessment-results.md",
-                      "bytes":  1627,
-                      "sha256":  "7BCC3D6C47D42DCC11A710DC20A784E560AAF373E3C5E7410D0C7C3F6BC5747F"
+                      "bytes":  1958,
+                      "sha256":  "2F919400A800E700A7E7493EB373F61A8851AE5280D05E7893CA296ADDD1B23B"
                   },
                   {
                       "path":  "docs/expertise/assessment-rubric.md",
-                      "bytes":  6025,
-                      "sha256":  "2068F386ABFD811277344A98B2F0BCA24D9C4C51112AD3CC73C6A3677A282462"
+                      "bytes":  6276,
+                      "sha256":  "9FF4859E7AC305E0915616B9C31A5292E53E88E3084EDCD24B306AFADC774CAB"
                   },
                   {
                       "path":  "docs/expertise/package-intake.md",
@@ -40,8 +40,8 @@
                   },
                   {
                       "path":  "docs/expertise/practicals.md",
-                      "bytes":  12620,
-                      "sha256":  "3D73FE12ED105075615CB34F590B9DCB36994BF8C40F48217685CEAACE592174"
+                      "bytes":  12751,
+                      "sha256":  "3ADBCBD0417EBCF0C02A88464E8A56D027222A508ED3A0CE2917B7F19FE81E23"
                   },
                   {
                       "path":  "docs/expertise/source-register.md",
@@ -50,8 +50,8 @@
                   },
                   {
                       "path":  "docs/expertise/syllabus.md",
-                      "bytes":  7279,
-                      "sha256":  "159F1F18A39D7E0DC63BA34450F37B58EE7CF0AB7E3A94B0DC12E63820670314"
+                      "bytes":  7404,
+                      "sha256":  "FC69B4D2115976841CAC99A26678A3A18A8D78B75C2EB150105975F1D2DC20A7"
                   },
                   {
                       "path":  "docs/expertise/toolchain-audit.md",
@@ -60,8 +60,13 @@
                   },
                   {
                       "path":  "tests/Expertise.Tests.ps1",
-                      "bytes":  9741,
-                      "sha256":  "6D95FBF9FC75F8DC1DD598CD8BFB5E0625FD54D9D58AD8C12BCA8EE7B6524FEF"
+                      "bytes":  10130,
+                      "sha256":  "A9A335F91C3FD907D9A693D83826FA38D9A0DA8F82FE23645EF1A7FA8633C667"
+                  },
+                  {
+                      "path":  "tests/QualificationState.Tests.ps1",
+                      "bytes":  1439,
+                      "sha256":  "3AC89217F02E0296827BA79CAE8C14871C08B8B3F96C17B6FF8B43C30AFCCA06"
                   },
                   {
                       "path":  "tests/fixtures/ck/README.md",
@@ -81,7 +86,7 @@
                   {
                       "path":  "tests/fixtures/ck/ck-v3-check.txt",
                       "bytes":  222,
-                      "sha256":  "7FA6CD2DF8E27116974D0480E725E090C194D0D0577C19B5B752CDD8C5B86488"
+                      "sha256":  "C14F3410C7A6777FA3BAEC2DF725A8BCF6531390F41FDCB7B926417C6B7128B2"
                   },
                   {
                       "path":  "tests/fixtures/ck/ck-v3-structural-dump.txt",
@@ -110,13 +115,13 @@
                   },
                   {
                       "path":  "tests/fixtures/evidence/assessment.json",
-                      "bytes":  6212,
-                      "sha256":  "F305D15B56D31F89599FF04D5DE6CFE7CCDE0143B9EFAE7ED647514EBCE25761"
+                      "bytes":  6249,
+                      "sha256":  "CE75CD60A02B260F12099BDBDA726BC323073C6EA4FDF8CA900CAFE184D53660"
                   },
                   {
                       "path":  "tests/fixtures/evidence/gate-requirements.json",
-                      "bytes":  1704,
-                      "sha256":  "DA32742DFA3CA7466199880DC16F869ADB8D68C0A168BC28DF8DE62DC0FB2D92"
+                      "bytes":  1740,
+                      "sha256":  "F995C31890828833255A094EBC78E55224825DED9D8ABD73B9DB94A95C119F0B"
                   },
                   {
                       "path":  "tests/fixtures/evidence/release-state.json",
@@ -155,8 +160,8 @@
                   },
                   {
                       "path":  "tests/fixtures/papyrus/Test-RuntimeCapture.ps1",
-                      "bytes":  5129,
-                      "sha256":  "C5ABC572CA3AF3D3E849733BC3F5C18C7BE6CBE9E2620E1682651B687E53F38A"
+                      "bytes":  5139,
+                      "sha256":  "7AC0BF7766E2CAA8AE4997C88F00AF72165712BC5A08B6F3E6396545082C7290"
                   },
                   {
                       "path":  "tests/fixtures/papyrus/compiler-evidence.txt",
@@ -180,8 +185,8 @@
                   },
                   {
                       "path":  "tests/fixtures/preparation/Test-PreparationContracts.ps1",
-                      "bytes":  10633,
-                      "sha256":  "7D77CF02D0536C797E3EDD583B209EAED5539E8B314DEDBB6B4BE391F9B1EE8A"
+                      "bytes":  10662,
+                      "sha256":  "A1460E1461AABAF91335C8B5F9D1F67859285CA203810069146853267EEEB596"
                   },
                   {
                       "path":  "tests/fixtures/runtime/Test-IsolatedRuntimeCompatibility.ps1",
@@ -216,7 +221,7 @@
                   {
                       "path":  "tests/fixtures/together/build-evidence.txt",
                       "bytes":  1647,
-                      "sha256":  "308C8DBE21C587893D33AC433728BDE77F1601289DFDF3C9688215B16D158B21"
+                      "sha256":  "91C51A114368ECF3882EA3F6982A6E4BE89C1A56C76FF9090A67BC29EA8C4FA9"
                   },
                   {
                       "path":  "tests/fixtures/together/desync-boundary.md",
@@ -230,13 +235,13 @@
                   },
                   {
                       "path":  "tests/fixtures/together/production-inventory-route-test.patch",
-                      "bytes":  2279,
-                      "sha256":  "92087125E540E4B53011612371B30CAE5800D62040D3089DFEC497A09C4C02DF"
+                      "bytes":  2276,
+                      "sha256":  "224225239294A937EE154F9A7BCDAE684AFB7184421D29984258CCA9EE3F8252"
                   },
                   {
                       "path":  "tests/fixtures/together/tiltedreverse-xmake-fix.patch",
-                      "bytes":  2313,
-                      "sha256":  "6B8527DF4FD48D0D22A39EEBE1283C23E88BBE58B880C285C5C7EC03DC520E32"
+                      "bytes":  2307,
+                      "sha256":  "78C5DB801E5F2FB546413B569268949C5E1321E3A2A82185E9BF402430DB466C"
                   },
                   {
                       "path":  "tests/fixtures/xedit/CreateCkFixtureV2.pas",

@@ -1,0 +1,9 @@
+{
+  "status":"BLOCKED",
+  "automaticBlock":true,
+  "freshOriginalPractical":false,
+  "requiredVersion":"Creation Kit 1.6.1378.1",
+  "requiredOriginalRecords":["quest","reference-alias","stage-objective","condition","package","navmesh"],
+  "captureCommand":"pwsh -File tests/fixtures/ck/Test-CkCapture.ps1 -Plugin <isolated-original-plugin> -XDump64 <xDump64.exe>",
+  "provenance":"The historical Bethesda-derived replacement plugin is explicitly inadmissible as original evidence."
+}

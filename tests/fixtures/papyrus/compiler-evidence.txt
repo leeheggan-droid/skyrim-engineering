@@ -1,0 +1,35 @@
+Papyrus compile evidence — fix round 1 — 2026-08-06
+
+Compiler: PapyrusCompiler.exe
+Compiler SHA256: F441AFA877CE0B315C6B613DB7FE700A7BBC66B71A72FC4D0D8BC94577CEB0CE
+Flags: TESV_Papyrus_Flags.flg
+Flags SHA256: AB61D098EF7A1402D8EE4D7BC77F26851D5380CD142EE4F3BF57CE41D0E7AFA7
+Imports: locally extracted official Skyrim script-source tree
+Output destination: disposable workspace directory (deleted before release)
+
+Command shape:
+PapyrusCompiler.exe SEG_ValidEvent.psc -f=<flags> -i=<fixture>;<official-imports> -o=<disposable-output>
+
+Starting 1 compile threads for 1 files...
+Compiling "SEG_ValidEvent"...
+Starting assembly of SEG_ValidEvent
+0 error(s), 0 warning(s)
+Assembly succeeded
+Compilation succeeded.
+Batch compile of 1 files finished. 1 succeeded, 0 failed.
+VALID_EXIT=0
+Generated PEX SHA256: 07D0F4BBE789E4321B620C4A01C6509C211B0B6DFEEDA2F0F6276C96EE98BAA3
+
+Command shape:
+PapyrusCompiler.exe SEG_InvalidEvent.psc -f=<flags> -i=<fixture>;<official-imports> -o=<disposable-output>
+
+Starting 1 compile threads for 1 files...
+Compiling "SEG_InvalidEvent"...
+SEG_InvalidEvent.psc(4,8): type mismatch while assigning to a int (cast missing or types unrelated)
+No output generated for SEG_InvalidEvent.psc, compilation failed.
+Batch compile of 1 files finished. 0 succeeded, 1 failed.
+INVALID_EXIT=-1
+
+No game runtime event log is claimed by this transcript. Compiler, flags,
+official imports, and generated PEX are licensed/local inputs and are not
+included in the repository.

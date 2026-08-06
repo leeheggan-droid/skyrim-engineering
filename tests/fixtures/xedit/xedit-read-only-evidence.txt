@@ -1,0 +1,24 @@
+xEdit/xDump isolated read-only evidence — 2026-08-06
+
+Tool: xDump from xEdit 4.1.5f
+Mode: record check in a disposable Data directory; no save loaded; no plugin
+save requested. Licensed masters were copied in, hashed before and after, then
+removed. The repository contains no master or plugin binary.
+
+Dawnguard.esm SHA256 before/after: 1BDA804009A21228ACF6B30AA6AA7A692B247FF8A0313FE9AA69B3617ED4A6C4
+HearthFires.esm SHA256 before/after: AD4CA9F32C81E7DDD3E39EC95E03B07841F20712989E598778442EA69B6E6A97
+Dragonborn.esm SHA256 before/after: 5F44F343552688C04F73BF83DE58B90F70C7376B133FBBCB56B6FE33ACF8778B
+ccAFDSSE001-DweSanctuary.esm SHA256 before/after: 9CFEFE347A7B5B9867EF5C7E0E50DE2660442F9669E9A6A6BFD61A61B3A2DD83
+
+xDump exit: 0
+Record check: 19 records; groups MISC, NPC_, CELL, DIAL, QUST, PACK
+Final disposable plugin CRC32: CBB41D4F
+Final disposable plugin SHA256: 84B371725A3F7940A39536DBFA91F7F876A04C16129C881217052EBD1CD441B7
+Tool message: All Done
+Validation errors: none
+Licensed temporary masters remaining after cleanup: 0
+
+Limitation: this transcript validates the earlier plugin containing a copied
+Bethesda PACK and therefore is diagnostic evidence only, not distributable CK
+practical evidence. The corrected original PACK shell requires a new CK/xDump
+round-trip.

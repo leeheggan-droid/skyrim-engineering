@@ -4,6 +4,7 @@
   "overallThresholdPercent": 90,
   "awarded": 76,
   "maximum": 100,
+  "gateAppliesTo": "v1.0-qualified",
   "gateStatus": "BLOCKED",
   "domains": [
     {

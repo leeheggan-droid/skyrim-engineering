@@ -1,0 +1,16 @@
+tool=xDump
+plugin=SEG_CK_Practical3.esp
+plugin-sha256=84B371725A3F7940A39536DBFA91F7F876A04C16129C881217052EBD1CD441B7
+records-declared=19
+groups=MISC,NPC_,CELL,DIAL,QUST,PACK
+MISC=06000800 SEG item
+NPC_=06000802 actor; items=1; package=06000801
+CELL=06000806; placed-reference=06000807
+DIAL=06000804; INFO=06000805
+QUST=06000803; VMAD-script=SEG_ValidEvent; stage=10
+PACK=06000801
+alias=absent
+objective=absent
+package-condition=absent
+navmesh=absent
+result=structure observed; absent elements are not claimed

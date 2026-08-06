@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "supportBoundary": {
+    "steamExecutable": "1.6.117x",
+    "paidAnniversaryUpgrade": "unsupported",
+    "bundledCreationClub": "disable all four for stability",
+    "modSynchronization": "none; compatibility requires testing"
+  },
+  "clients": [
+    {"id": "host", "role": "sole authority for irreversible quest, world, dialogue and scene state"},
+    {"id": "client-a", "role": "bounded combat and loot agency; proposes irreversible actions to host"},
+    {"id": "client-b", "role": "bounded combat and loot agency; observes host commits"}
+  ],
+  "campaignDoctrine": {
+    "authority": "host commits irreversible quest/world/dialogue/scene state to all clients",
+    "clientAgency": "bounded combat and loot agency within strict proximity",
+    "commitPath": "client proposed actions commit through host before convergence is expected",
+    "savePolicy": "clean campaign saves only",
+    "hostMigrationV1": false
+  },
+  "phases": [
+    {"id": 1, "action": "connect all clients with identical clean profiles", "expected": "same load order and initial state"},
+    {"id": 2, "action": "client-a proposes an irreversible action while within strict proximity", "expected": "host accepts or rejects; accepted commit converges to both clients"},
+    {"id": 3, "action": "disconnect client-a, change authoritative state, reconnect", "expected": "full snapshot restores convergence"},
+    {"id": 4, "action": "save only after all clients agree; reload cleanly", "expected": "state remains converged"}
+  ],
+  "privacy": "Use synthetic character names and relative paths; retain no Steam IDs, IPs, saves, or licensed assets."
+}

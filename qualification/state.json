@@ -1,0 +1,56 @@
+{
+  "schema": "skyrim-engineering.qualification/v1",
+  "provisionalReleaseBlocked": false,
+  "qualifiedReleaseBlocked": true,
+  "qualifiedReleaseAssessment": "tests/fixtures/evidence/assessment.json",
+  "tracks": [
+    {
+      "id": "creation-kit",
+      "status": "blocked",
+      "requiredVersion": "Creation Kit 1.6.1378.1",
+      "captureSchema": "skyrim-engineering.qualification.creation-kit/v1",
+      "observation": "The retained V3 check is historical diagnostic evidence and includes a Bethesda-derived package record.",
+      "hypothesis": "A fresh original-only quest round trip can satisfy the required record and provenance checks.",
+      "reproductionCommand": "pwsh -File tests/fixtures/ck/Test-CkCapture.ps1 -Plugin <isolated-original-plugin> -XDump64 <xDump64.exe>",
+      "cleanupCommand": "Delete only the named disposable profile after retaining sanitized metadata and hashes.",
+      "blockingDependency": "A human-operated original Creation Kit create, save, reopen, and xDump capture is absent.",
+      "humanReviewRequired": true
+    },
+    {
+      "id": "xedit",
+      "status": "blocked",
+      "requiredVersion": "xEdit 4.1.5f",
+      "captureSchema": "skyrim-engineering.qualification.xedit/v1",
+      "observation": "The retained read-only replay is bounded; no committed minimal patch create/save/reopen capture exists.",
+      "hypothesis": "The prepared four-phase run can establish the minimal patch boundary without changing protected inputs.",
+      "reproductionCommand": "pwsh -File tests/fixtures/xedit/Invoke-MinimalPatchRoundTrip.ps1 -XEdit64 <xTESEdit64.exe> -XDump64 <xDump64.exe> -DataPath <isolated-data> -IniPath <isolated-ini> -PluginListPath <isolated-plugin-list> -RunRoot <fresh-run>",
+      "cleanupCommand": "Delete only the named isolated run root after retaining sanitized metadata and hashes.",
+      "blockingDependency": "A human-reviewed live minimal patch/save/reopen capture with protected-input hashes is absent.",
+      "humanReviewRequired": true
+    },
+    {
+      "id": "papyrus-runtime",
+      "status": "blocked",
+      "requiredVersion": "SkyrimSE.exe 1.6.1170.0 with SKSE 2.2.6",
+      "captureSchema": "skyrim-engineering.qualification.papyrus-runtime/v1",
+      "observation": "The compiler and staged-byte contracts pass, but no disposable-save V1-to-V2 runtime capture is retained.",
+      "hypothesis": "A live, phase-separated V1-to-V2 save/load run will produce the required migration markers and distinct save hashes.",
+      "reproductionCommand": "pwsh -File tests/fixtures/papyrus/Test-RuntimeCapture.ps1 -V1PapyrusLog <v1-log> -V2PapyrusLog <v2-log> -SaveBefore <save-before> -SaveAfter <save-after> -StageManifest <manifest> -CaptureOutput <capture>",
+      "cleanupCommand": "Delete only the named disposable runtime profile after retaining sanitized metadata and hashes.",
+      "blockingDependency": "Synthetic input validation cannot establish runtime provenance; a named human reviewer must assess a fresh live capture.",
+      "humanReviewRequired": true
+    },
+    {
+      "id": "together-production",
+      "status": "untested",
+      "requiredVersion": "SkyrimSE.exe 1.6.1170.0 on two independent client laptops",
+      "captureSchema": "skyrim-engineering.qualification.together-production/v1",
+      "observation": "Source traces, builds, and an executable model exist; no production multi-client process-boundary result exists.",
+      "hypothesis": "A controlled inventory divergence and recovery can be reproduced and diagnosed across the real server and two clients.",
+      "reproductionCommand": "Use the Task 5 Anniversary Together case schema after proving cross-machine runtime, content, and load-order parity.",
+      "cleanupCommand": "Stop the named test server and remove only disposable test profiles and sanitized temporary logs.",
+      "blockingDependency": "Two independently operated laptops and a real Skyrim Together production-process capture have not been used.",
+      "humanReviewRequired": true
+    }
+  ]
+}

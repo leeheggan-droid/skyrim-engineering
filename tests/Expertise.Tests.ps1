@@ -49,6 +49,7 @@ Describe 'Step zero expertise evidence integrity' {
         $awarded | Should -Be $assessment.awarded
         $maximum | Should -Be $assessment.maximum
         $maximum | Should -Be 100
+        $assessment.gateAppliesTo | Should -Be 'v1.0-qualified'
 
         $humanResults = Get-Content -Raw (Join-Path $repoRoot 'docs\expertise\assessment-results.md')
         $humanResults | Should -Match ([regex]::Escape("Overall result: **$awarded/$maximum"))
@@ -145,9 +146,14 @@ Describe 'Step zero expertise evidence integrity' {
         $release.includesLicensedGameOrModPayload | Should -BeFalse
     }
 
-    It 'requires two explicit independent PASS approvals' {
+    It 'keeps unresolved qualified reviews explicit without blocking provisional release' {
+        $qualification = Get-Content -Raw (Join-Path $repoRoot 'qualification\state.json') | ConvertFrom-Json
         $approvedScopes = @($reviews.reviews | Where-Object { $_.verdict -eq 'PASS' -and $_.approved }).scope | Select-Object -Unique
-        $approvedScopes.Count | Should -BeGreaterOrEqual 2
-        @($reviews.reviews | Where-Object { $_.criticalOpen -gt 0 -or $_.importantOpen -gt 0 }).Count | Should -Be 0
+
+        $assessment.gateStatus | Should -Be 'BLOCKED'
+        $approvedScopes.Count | Should -Be 0
+        @($reviews.reviews | Where-Object { $_.criticalOpen -gt 0 -or $_.importantOpen -gt 0 }).Count | Should -BeGreaterThan 0
+        $qualification.provisionalReleaseBlocked | Should -BeFalse
+        $qualification.qualifiedReleaseBlocked | Should -BeTrue
     }
 }

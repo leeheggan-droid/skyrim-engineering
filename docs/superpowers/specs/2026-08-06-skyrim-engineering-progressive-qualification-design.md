@@ -79,6 +79,42 @@ The `v1.0 qualified` gate additionally requires:
 
 No waiver converts missing live evidence into a qualified PASS.
 
+## Codex-Led Laptop Bootstrap
+
+The provisional skill will include a terminal-led setup workflow that Codex can
+run independently on each family laptop after Steam Skyrim Anniversary is
+installed. The workflow must understand that machines may already contain
+different add-ons and profiles.
+
+Before changing anything it inventories the Skyrim runtime, complete Creation
+set, plugins, archives, SKSE components, Address Library, Skyrim Together, mod
+manager, profiles, load order, and relevant tool versions. It classifies items
+as canonical Anniversary baseline, approved shared multiplayer component,
+machine-specific add-on, or unknown/incompatible item.
+
+The workflow exposes five explicit modes:
+
+- `-AuditOnly`: read-only discovery and sanitized inventory;
+- `-Plan`: deterministic proposed actions without mutation;
+- `-Apply`: install only approved free components and create an isolated
+  `Anniversary Together` profile after confirmation;
+- `-Verify`: compare the resulting anonymous client manifest with the canonical
+  baseline; and
+- `-Rollback`: reverse only changes recorded by the workflow.
+
+Codex may install pinned, hash-verified free tooling and approved free Skyrim
+components such as SKSE, Address Library, and Skyrim Together after a separate
+confirmation. It must not install Steam, authenticate accounts, purchase or
+download licensed Bethesda content, copy saves, change firewall rules, delete
+or overwrite existing add-ons, or install unapproved Nexus packages.
+
+Machine-specific add-ons remain preserved in their existing profiles and are
+excluded from the multiplayer profile until compatibility is explicitly
+approved. Comparison reports distinguish missing, extra, hash-different,
+version-different, and order-different content. Public artifacts use only
+`client-a`, `client-b`, and `client-c` identifiers and contain no personal
+paths, account IDs, credentials, network addresses, or copied game assets.
+
 ## Repository Layout and State
 
 The canonical skill remains under `skill/skyrim-engineering` and is installed
@@ -109,7 +145,9 @@ legally redistributable patches may enter the public repository.
    inspection, Creation inventory, and cross-machine comparison.
 6. **Diagnostics and project schemas** — sanitized collection plus Anniversary
    Together control/result definitions.
-7. **Local installation** — safe junction installer and verified discovery.
+7. **Local installation and laptop bootstrap** — safe junction installer,
+   Codex-led audit/plan/apply/verify/rollback workflow, add-on-preserving profile
+   isolation, and verified discovery.
 8. **CI and public safety** — complete automated validation.
 9. **Provisional forward tests and publication** — five clean-context tests,
    public repository, green CI, and `v0.1 provisional` handoff.

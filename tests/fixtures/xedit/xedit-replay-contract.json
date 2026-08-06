@@ -1,0 +1,12 @@
+{
+  "status":"PASS",
+  "automaticBlock":false,
+  "freshReplayCaptured":true,
+  "tool":{"version":"4.1.5f","sha256":"659FADDD8DC061A9D2EDDD20DE925821B87E377284CE179F4538FF78BB2420CD"},
+  "command":"xTESEdit64.exe -SSE -D:<isolated-Data> -I:<isolated-Skyrim.ini> -P:<isolated-plugins.txt> -S:<isolated-Scripts> -T:<isolated-Temp> -C:<isolated-Cache> -B:<isolated-Backups> -R:<isolated-log> -script:InspectReadOnly.pas",
+  "moduleSelection":"Windows UI Automation invoked the exact OK control",
+  "evidence":["tests/fixtures/xedit/fresh-replay.json","tests/fixtures/xedit/first-pass-inspection.txt","tests/fixtures/xedit/second-pass-inspection.txt"],
+  "authoritativeDiskHashDeltaCount":0,
+  "inMemoryNormalizationCounts":{"cacheBuildPass":3,"cachedPass":2},
+  "limitations":"This proves bounded read-only inspection only. It does not prove missing-master handling or a minimal patch save/reopen."
+}

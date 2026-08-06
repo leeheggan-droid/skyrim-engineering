@@ -1,0 +1,16 @@
+{
+  "capturedAt": "2026-08-06T16:37:40.7686023Z",
+  "pass": "fresh second pass after retained cache-build pass",
+  "toolVersion": "4.1.5f",
+  "toolSha256": "659FADDD8DC061A9D2EDDD20DE925821B87E377284CE179F4538FF78BB2420CD",
+  "arguments": ["-SSE","-D:C:\\tmp\\seg-task0-xedit-visible-20260806-1745\\Data\\","-I:C:\\tmp\\seg-task0-xedit-visible-20260806-1745\\Ini\\Skyrim.ini","-P:C:\\tmp\\seg-task0-xedit-visible-20260806-1745\\Profile\\plugins.txt","-S:C:\\tmp\\seg-task0-xedit-visible-20260806-1745\\Scripts\\","-T:C:\\tmp\\seg-task0-xedit-visible-20260806-1745\\Temp\\","-C:C:\\tmp\\seg-task0-xedit-visible-20260806-1745\\Cache\\","-B:C:\\tmp\\seg-task0-xedit-visible-20260806-1745\\Backups\\","-R:C:\\tmp\\seg-task0-xedit-visible-20260806-1745\\Logs\\second-pass-xedit.log","-script:InspectReadOnly.pas"],
+  "moduleSelectionInvokedBy": "Windows UI Automation exact OK control",
+  "processId": 27172,
+  "inputs": [
+    {"file":"Skyrim.esm","before":"2BBC77FDEC35A70EF96B710F8C525E50A1DB9E63E11A391A0EB9EE8F56D36107","after":"2BBC77FDEC35A70EF96B710F8C525E50A1DB9E63E11A391A0EB9EE8F56D36107","equal":true},
+    {"file":"Update.esm","before":"C1795E0A1218DA45DBFD523F064F1857B42805C49714C46091E75277E525AED9","after":"C1795E0A1218DA45DBFD523F064F1857B42805C49714C46091E75277E525AED9","equal":true}
+  ],
+  "modifiedFileCount": 2,
+  "rawOutput": ["inspection-mode=read-only","xedit-version-number=67175686","game=Skyrim","loaded-file-count=3","file=Skyrim.esm","header-signature=TES4","header-flags=10000001","header-version=1.710000","header-record-count=920181","file=Update.esm","header-signature=TES4","header-flags=10000001","header-version=1.710000","header-record-count=21232","master=Skyrim.esm","override-sample=GMST:000D4D01","override-master-file=Skyrim.esm","override-winning-file=Update.esm","vmad-sample=CCHorseArmorDialogueQuest","vmad-script-count=2","resource-container-count=0","resource-container-list-retained=no","modified-file-count=2"],
+  "interpretation": {"modifiedFileCountMeaning":"xEdit in-memory esModified state after load/cache normalization; not a disk-write count","authoritativeDiskHashDeltaCount":0,"saveClaim":"No save was requested; both selected master hashes are byte-identical before/after."}
+}

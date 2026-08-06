@@ -1,0 +1,9 @@
+tool=xDump
+mode=check
+exit=0
+plugin=SEG_CK_Practical3.esp
+plugin-sha256=84B371725A3F7940A39536DBFA91F7F876A04C16129C881217052EBD1CD441B7
+plugin-length=1899
+result=All Done.
+errors=0
+temporary-licensed-masters-remaining=0

@@ -1,0 +1,7 @@
+{
+  "round": 3,
+  "reviews": [
+    {"scope":"data-creation-papyrus","verdict":"FAIL","approved":false,"criticalOpen":2,"importantOpen":5,"criticalFindingIds":["C1","C2"],"importantFindingIds":["I1","I2","I3","I4","I5"],"reportPath":".superpowers/sdd/2026-08-06-skyrim-engineering-skill-v1/task-0-rereview-skyrim-r3.md","reportSha256":"07CF63541CAF5E0D9ADD8DD89D21C086863B178F6C0537797C6DD111ADD3321E"},
+    {"scope":"together-runtime-build","verdict":"FAIL","approved":false,"criticalOpen":0,"importantOpen":2,"criticalFindingIds":[],"importantFindingIds":["I1","I2"],"reportPath":".superpowers/sdd/2026-08-06-skyrim-engineering-skill-v1/task-0-rereview-together-r2.md","reportSha256":"5C70C1A40852CAF5AF7588E4EC03DEDC6B55705060A0DC31DD976D2CB1916C1E"}
+  ]
+}

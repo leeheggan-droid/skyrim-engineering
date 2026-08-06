@@ -92,7 +92,7 @@ try {
     )
     Assert-True ($result.ExitCode -eq 0) "runtime capture contract rejected valid inputs: $($result.Output)"
     $capture = Get-Content -Raw -LiteralPath $captureOutput | ConvertFrom-Json
-    Assert-True ($capture.result -eq 'CAPTURE_VERIFIED') 'capture result is not verified'
+    Assert-True ($capture.result -eq 'UNVERIFIED_SUBMISSION') 'synthetic capture must remain an unverified submission'
     Assert-True ($capture.markers.SEG_EVENT_OK -eq 'V1') 'event marker was not attributed to V1'
     Assert-True ($capture.markers.SEG_MIGRATION_OLD -eq 'V1') 'old marker was not attributed to V1'
     Assert-True ($capture.markers.SEG_MIGRATION_NEW -eq 'V2') 'new marker was not attributed to V2'

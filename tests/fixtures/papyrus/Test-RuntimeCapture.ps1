@@ -70,7 +70,7 @@ if (-not (Test-Path -LiteralPath $captureParent -PathType Container)) { [IO.Dire
 
 $capture = [ordered]@{
     contractVersion = 1
-    result = 'CAPTURE_VERIFIED'
+    result = 'UNVERIFIED_SUBMISSION'
     humanOperatedRuntimeRequired = $true
     stageManifestSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $manifestPath).Hash
     pex = [ordered]@{
@@ -93,4 +93,4 @@ $capture = [ordered]@{
     limitations = 'Validates staged bytes, phase-separated markers, and save hashes; it cannot independently prove who operated the game or that hash change alone represents a successful migration.'
 }
 $capture | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $capturePath -Encoding UTF8
-"RESULT=PASS contract=CAPTURE_VERIFIED before=$beforeHash after=$afterHash"
+"RESULT=PASS contract=UNVERIFIED_SUBMISSION before=$beforeHash after=$afterHash"

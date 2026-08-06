@@ -1,0 +1,15 @@
+parent-commit=9d81ef07d68e4bb2bd94fca246e798a564b7fb92
+mode=releasedbg x64
+patch=production-inventory-route-test.patch
+production-types=RequestInventoryChanges,NotifyInventoryChanges
+production-factories=ClientMessageFactory,ServerMessageFactory
+production-fields=ServerId,Inventory::Entry GameId/count,Drop,UpdateClients
+build-command=xmake -y TPTests
+build-exit=0
+test-command=TPTests.exe "[inventory.route]" --reporter compact
+test-result=Passed 1 test case with 9 assertions.
+test-exit=0
+test-exe-length=1157632
+test-exe-sha256=CDCAFE2F95717262A5A0EA673868FEB650F1E993075705260927A110CDA37291
+boundary=actual production message serialization and both factory extraction paths are executed in-process; server InventoryService mutation/gate, GameServer range broadcast, transport sockets, activation route, remote game application, and divergent state are not executed
+credit=source-linked native integration evidence only; zero production client/server desync reproduction credit

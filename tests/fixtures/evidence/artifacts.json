@@ -1,0 +1,89 @@
+{
+  "algorithm": "SHA256",
+  "artifacts": [
+    {
+      "path": "tests/fixtures/data-model/cases.json",
+      "sha256": "929A1ED47F0A82F63F520F3F010E2ADEA78DBCE4BB4316351F72AE5FCF708BAA"
+    },
+    {
+      "path": "tests/fixtures/ck/ck-v3-check.txt",
+      "sha256": "C14F3410C7A6777FA3BAEC2DF725A8BCF6531390F41FDCB7B926417C6B7128B2"
+    },
+    {
+      "path": "tests/fixtures/xedit/xedit-read-only-evidence.txt",
+      "sha256": "33A656C0AF8B9CD1F2738659F456103E093B27816E8F3D017AEEEB4BC1155CF2"
+    },
+    {
+      "path": "tests/fixtures/papyrus/compiler-evidence.txt",
+      "sha256": "11B2E706060DBF968419A5B5102AD03FB85AB46684841BEE01EBFAA510E026F6"
+    },
+    {
+      "path": "tests/fixtures/runtime/skse-source-trace.txt",
+      "sha256": "1B46EA99A51B86D5393526A53E99B812E67C95756882B2396AF75C63A32F32B3"
+    },
+    {
+      "path": "tests/fixtures/diagnostics/cdb-reverse-evidence.txt",
+      "sha256": "F1B648FD8CAFC12117627A447D68A12E6E11FB8AFBD7BCE14C21F04D7471E010"
+    },
+    {
+      "path": "tests/fixtures/together/build-evidence.txt",
+      "sha256": "91C51A114368ECF3882EA3F6982A6E4BE89C1A56C76FF9090A67BC29EA8C4FA9"
+    },
+    {
+      "path": "tests/fixtures/together/tiltedreverse-xmake-fix.patch",
+      "sha256": "78C5DB801E5F2FB546413B569268949C5E1321E3A2A82185E9BF402430DB466C"
+    },
+    {
+      "path": "tests/fixtures/intake/accepted-packages.json",
+      "sha256": "0BB0F54F21FC278D297E5ED2C08BF3E568B7C65404D010F46A515C371DDD505D"
+    },
+    {
+      "path": "tests/fixtures/together/anniversary-test-matrix.json",
+      "sha256": "BEF78581EA3B10EC12A8DDE2397384071A7B3367009BF933F26D3789BE0EAE68"
+    },
+    {
+      "path": "tests/fixtures/together/Test-DesyncEdge.ps1",
+      "sha256": "0942455AD292FB2288CAC24EABFA4C0F33FA9D767F1B0D06C2C461AC88121192"
+    },
+    {
+      "path": "tests/fixtures/runtime/Test-IsolatedRuntimeCompatibility.ps1",
+      "sha256": "5910DB7A86861C9DCBDD21507D54E0A915C90C9D3C8D01A02DCFD87484808345"
+    },
+    {
+      "path": "tests/fixtures/runtime/Test-RuntimeSelectorContract.ps1",
+      "sha256": "F3AC96DADFBE8E3DB78DB84CBCEA3C600D632B848C1062E5543B499D3C389A4C"
+    },
+    {
+      "path": "tests/fixtures/runtime/runtime-evidence.txt",
+      "sha256": "E0945B0BCABB6E524F72F14F03BDA742C15E0D816B7FD27D5686622DE6E023F9"
+    },
+    {
+      "path": "tests/fixtures/together/production-inventory-route-test.patch",
+      "sha256": "224225239294A937EE154F9A7BCDAE684AFB7184421D29984258CCA9EE3F8252"
+    },
+    {
+      "path": "tests/fixtures/together/production-inventory-route-evidence.txt",
+      "sha256": "F5FD0D3D8243CFEA7B8A3AD940577BD0D7A58EAF19A0A84E4142EA5BCFD3561B"
+    },
+    {
+      "path": "tests/fixtures/together/desync-boundary.md",
+      "sha256": "0F28E361785351AA883AB13F6BA3B78626E8E907A86FB21C0CB93CF0B6490F03"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "8BC5BE980DB52ED3BC8C67E6C00DEC34512F319945D30BD728D4B1B4561EA375"
+    },
+    {
+      "path": "tests/fixtures/xedit/fresh-replay.json",
+      "sha256": "FD3F9AD4BB3F7ADC9003CFD8641CA1F008C0B67EC2F2D9C2B8FB30823132AD63"
+    },
+    {
+      "path": "tests/fixtures/xedit/first-pass-inspection.txt",
+      "sha256": "7EDC3FC6BA61B4A2ED631DA6AE788B2BEF3F5F78DA13000FE387F162BB5CEDA5"
+    },
+    {
+      "path": "tests/fixtures/xedit/second-pass-inspection.txt",
+      "sha256": "95822305ECDC1828F1D06CFDD2316D1B231165438CDFBA3E928F78DD7949608E"
+    }
+  ]
+}

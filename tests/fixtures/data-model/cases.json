@@ -1,0 +1,54 @@
+{
+  "standard": {
+    "runtimeFormId": "0x2A00C123",
+    "loadIndex": "0x2A",
+    "objectId": "0x00C123",
+    "loadIndexMaximum": "0xFD",
+    "objectIdMaximum": "0xFFFFFF",
+    "reservedRuntimePrefixes": ["0xFE", "0xFF"]
+  },
+  "light": {
+    "runtimeFormId": "0xFE123ABC",
+    "lightIndex": "0x123",
+    "objectId": "0xABC",
+    "lightIndexMaximum": "0xFFF",
+    "objectIdMaximum": "0xFFF"
+  },
+  "masterRelative": {
+    "plugin": "Patch.esp",
+    "orderedMasters": ["Skyrim.esm", "Base.esp"],
+    "onDiskFormId": "0x01000123",
+    "sourceMasterIndex": 1,
+    "sourceObjectId": "0x000123",
+    "sourceMasterRuntimeIndex": "0x05",
+    "resolvedRuntimeFormId": "0x05000123",
+    "missingMaster": "Base.esp",
+    "missingMasterResult": "loader-reject-unresolved"
+  },
+  "overrideChain": {
+    "record": "GLOB:00000800",
+    "orderedPlugins": [
+      {"name": "Base.esp", "value": 10, "survivalCompatible": false, "role": "origin"},
+      {"name": "Conflict.esp", "value": 20, "survivalCompatible": true, "role": "losing-override"},
+      {"name": "LateFix.esp", "value": 12, "survivalCompatible": false, "role": "winning-override"}
+    ],
+    "desiredCombinedOutcome": {"value": 12, "survivalCompatible": true},
+    "minimalPatch": {
+      "name": "CompatibilityPatch.esp",
+      "requiredMasters": ["Base.esp"],
+      "value": 12,
+      "survivalCompatible": true,
+      "newRecords": 0
+    },
+    "reopen": {"winner": "CompatibilityPatch.esp", "errors": 0, "tes4Masters": ["Base.esp"]},
+    "compaction": {
+      "existingOverrideAction": "unchanged",
+      "newLocalOldFormId": "0x00001234",
+      "newLocalCompactedFormId": "0x00000800",
+      "dependentBefore": "0x01001234",
+      "dependentAfter": "0x01000800",
+      "allDependentsMigratedTogether": true
+    },
+    "compactionBoundary": "Do not compact an existing override chain. Compact only new local records before release and migrate every dependent plugin in one coordinated operation."
+  }
+}

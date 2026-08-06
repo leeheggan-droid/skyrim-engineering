@@ -1,0 +1,20 @@
+script=Test-IsolatedRuntimeCompatibility.ps1
+contract-test=Test-RuntimeSelectorContract.ps1
+installed-runtime=1.6.1170.0
+probe-command=<script> -ProbeRuntime 1.6.1179.0 -IsolatedProfile <temporary-profile>
+probe-output=REJECT probe=1.6.1179.0 installed=1.6.1170.0 reason=runtime-mismatch
+probe-exit=2
+exact-command=<script> -ProbeRuntime 1.6.1170.0 -IsolatedProfile <temporary-profile>
+exact-output=ACCEPT runtime=1.6.1170.0 skse=2.2.6 database=versionlib-1-6-1170-0.bin
+exact-exit=0
+skse-runtime-dll-sha256=C9A2C8A80DF6BF2372C5F49468BB2E5AB67786157265B6F29ECE9F4EAC075D54
+primary-database-sha256=C4093C569A3C83B26587F4B9EA4C55DE9AE6E73B84A2AF9FB3FBD30E2FE0D452
+alternate-database-sha256=AC6D17E8A4BB4DA2539E7A571113BCB28AE5ADF4874CD977332F1A5215F65C07
+destination=isolated temporary profile only
+rollback=delete isolated temporary profile
+boundary=selection and rejection only; no game launch or ABI claim
+uniqueness=exactly one recursively discovered skse64_1_6_1170.dll required
+hash-enforcement=mandatory ExpectedSkseSha256 compared before version/database checks and ACCEPT
+contract-positive=exact frozen hash ACCEPT, exit 0
+contract-negative-hash=all-zero expected hash REJECT mismatch, exit 1
+contract-negative-duplicate=two same-name candidates REJECT found 2, exit 1
