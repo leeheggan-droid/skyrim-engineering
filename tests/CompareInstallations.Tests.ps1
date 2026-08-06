@@ -51,4 +51,53 @@ Describe 'compare-installations' {
         & $comparisonPath -ManifestPath (Join-Path $manifestFixture 'malformed.json') -Json 2>$null | Out-Null
         $LASTEXITCODE | Should -Be 1
     }
+
+    It 'treats an omitted plugin from a present load order as an order difference' {
+        if (-not (Test-Path -LiteralPath $comparisonPath)) {
+            $false | Should -BeTrue
+            return
+        }
+
+        $output = & $comparisonPath -ManifestPath @(
+            (Join-Path $manifestFixture 'load-order-complete.json'),
+            (Join-Path $manifestFixture 'load-order-incomplete.json')) -Json
+        $exitCode = $LASTEXITCODE
+        $comparison = $output | ConvertFrom-Json
+
+        $exitCode | Should -Be 2
+        @($comparison.orderDifferent.relativePath) | Should -Be @('ccTEST-B.esl')
+    }
+
+    It 'returns exit code one for omitted unknown or duplicate loadOrder entries' {
+        if (-not (Test-Path -LiteralPath $comparisonPath)) {
+            $false | Should -BeTrue
+            return
+        }
+
+        @('load-order-omitted.json', 'load-order-unknown.json', 'load-order-duplicate.json') | ForEach-Object {
+            & $comparisonPath -ManifestPath (Join-Path $manifestFixture $_) -Json 2>$null | Out-Null
+            $LASTEXITCODE | Should -Be 1
+        }
+    }
+
+    It 'returns exit code one for every malformed emitted manifest shape' {
+        if (-not (Test-Path -LiteralPath $comparisonPath)) {
+            $false | Should -BeTrue
+            return
+        }
+
+        @(
+            'invalid-name-path.json',
+            'invalid-portable-path.json',
+            'invalid-negative-size.json',
+            'invalid-string-size.json',
+            'invalid-extension-kind.json',
+            'invalid-plugin-type.json',
+            'invalid-plugin-flag.json',
+            'invalid-archive-convention.json'
+        ) | ForEach-Object {
+            & $comparisonPath -ManifestPath (Join-Path $manifestFixture $_) -Json 2>$null | Out-Null
+            $LASTEXITCODE | Should -Be 1
+        }
+    }
 }

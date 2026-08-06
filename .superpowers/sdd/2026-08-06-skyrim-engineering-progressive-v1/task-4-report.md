@@ -21,3 +21,10 @@ Status: complete.
 ## Concern
 
 The inventory intentionally classifies plugin type from the filename extension only. It does not inspect binary plugin headers, so plugin entries explicitly report `internalFlag: notInspected`.
+
+## Review round 1
+
+- RED: the added comparison tests failed as expected: an incomplete present `loadOrder` returned parity, omitted/unknown/duplicate order entries were accepted, and incomplete manifest shapes could return parity.
+- GREEN: `loadOrder` is now required, must contain unique inventory plugin names, and sequence comparison records plugins omitted from either valid order as `orderDifferent` rather than returning parity.
+- The comparator now requires the emitted manifest shape: portable relative paths whose leaf matches `name`, nonnegative integer sizes, valid extension/kind/pluginType combinations, and `internalFlag: notInspected` for plugins. The archive convention is explicitly null `pluginType` and null `internalFlag`.
+- Final review-round focused run passed 12/12 Pester tests. Windows PowerShell 5.1 and PowerShell 7 parser checks, privacy scan, and `git diff --check` passed.

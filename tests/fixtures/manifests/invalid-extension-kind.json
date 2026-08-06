@@ -1,0 +1,7 @@
+{
+  "schema": "skyrim-engineering.creations/v1",
+  "files": [
+    { "name": "ccTEST-A.esl", "kind": "archive", "size": 1, "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "pluginType": null, "internalFlag": null, "relativePath": "ccTEST-A.esl" }
+  ],
+  "loadOrder": []
+}

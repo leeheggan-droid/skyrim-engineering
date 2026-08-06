@@ -24,7 +24,9 @@ function Get-PropertyValue {
     if ($null -eq $property) {
         throw "Required property '$Name' is missing."
     }
-    return $property.Value
+    # Preserve array-valued JSON properties when PowerShell captures function
+    # output; otherwise a single-entry JSON array is silently unwrapped.
+    return ,$property.Value
 }
 
 function Read-CreationManifest {
@@ -49,39 +51,116 @@ function Read-CreationManifest {
         throw 'Manifest schema must be skyrim-engineering.creations/v1.'
     }
 
-    $files = @(Get-PropertyValue -InputObject $manifest -Name 'files')
+    $filesValue = Get-PropertyValue -InputObject $manifest -Name 'files'
+    if ($null -eq $filesValue -or -not ($filesValue -is [System.Collections.IEnumerable]) -or $filesValue -is [string]) {
+        throw 'Manifest files must be an array.'
+    }
+
+    $files = @($filesValue)
     $byPath = @{}
+    $pluginsByName = @{}
     foreach ($file in $files) {
-        foreach ($propertyName in @('name', 'kind', 'size', 'sha256', 'pluginType', 'relativePath')) {
+        foreach ($propertyName in @('name', 'kind', 'size', 'sha256', 'pluginType', 'internalFlag', 'relativePath')) {
             [void](Get-PropertyValue -InputObject $file -Name $propertyName)
         }
-        $relativePath = [string]$file.relativePath
-        if ([string]::IsNullOrWhiteSpace($relativePath) -or [System.IO.Path]::IsPathRooted($relativePath) -or $relativePath.Contains('..')) {
-            throw 'Manifest contains an unsafe relativePath.'
+
+        if ($file.name -isnot [string] -or [string]::IsNullOrWhiteSpace($file.name) -or $file.name -match '[\\/]') {
+            throw 'Manifest contains an invalid file name.'
         }
-        if ($file.sha256 -cnotmatch '^[0-9a-f]{64}$') {
+        $name = [string]$file.name
+        if ($file.relativePath -isnot [string]) {
+            throw 'Manifest relativePath must be a string.'
+        }
+        $relativePath = [string]$file.relativePath
+        $pathSegments = $relativePath -split '/'
+        $invalidPathSegments = @($pathSegments | Where-Object { [string]::IsNullOrWhiteSpace($_) -or $_ -eq '.' -or $_ -eq '..' })
+        if ([string]::IsNullOrWhiteSpace($relativePath) -or [System.IO.Path]::IsPathRooted($relativePath) -or $relativePath.Contains('\') -or
+            $pathSegments.Count -eq 0 -or $invalidPathSegments.Count -gt 0) {
+            throw 'Manifest contains an unsafe non-portable relativePath.'
+        }
+        if ($pathSegments[$pathSegments.Count - 1] -cne $name) {
+            throw 'Manifest name must match the filename in relativePath.'
+        }
+        if ($file.sha256 -isnot [string] -or $file.sha256 -cnotmatch '^[0-9a-f]{64}$') {
             throw 'Manifest contains a non-lowercase SHA-256 value.'
         }
+        if ($file.size -isnot [System.Int16] -and $file.size -isnot [System.Int32] -and $file.size -isnot [System.Int64] -and
+            $file.size -isnot [System.UInt16] -and $file.size -isnot [System.UInt32] -and $file.size -isnot [System.UInt64]) {
+            throw 'Manifest size must be an integer.'
+        }
+        if ([Int64]$file.size -lt 0) {
+            throw 'Manifest size must be nonnegative.'
+        }
+
+        $extension = [System.IO.Path]::GetExtension($name).ToLowerInvariant()
+        $expectedKind = $null
+        $expectedPluginType = $null
+        if ($extension -in @('.esl', '.esm', '.esp')) {
+            $expectedKind = 'plugin'
+            $expectedPluginType = $extension.TrimStart('.')
+        }
+        elseif ($extension -eq '.bsa') {
+            $expectedKind = 'archive'
+        }
+        else {
+            throw 'Manifest contains an unsupported Creation file extension.'
+        }
+        if ($file.kind -isnot [string] -or $file.kind -cne $expectedKind) {
+            throw 'Manifest kind does not match file extension.'
+        }
+        if ($expectedKind -eq 'plugin') {
+            if ($file.pluginType -isnot [string] -or $file.pluginType -cne $expectedPluginType) {
+                throw 'Manifest pluginType does not match plugin extension.'
+            }
+            if ($file.internalFlag -isnot [string] -or $file.internalFlag -cne 'notInspected') {
+                throw 'Manifest plugins must use internalFlag notInspected.'
+            }
+        }
+        else {
+            # Archives have no plugin type or internal plugin-header flag.
+            if ($null -ne $file.pluginType -or $null -ne $file.internalFlag) {
+                throw 'Manifest archives must use null pluginType and internalFlag.'
+            }
+        }
+
         $key = $relativePath.ToLowerInvariant()
         if ($byPath.ContainsKey($key)) {
             throw 'Manifest contains duplicate relativePath values.'
         }
         $byPath[$key] = $file
+        if ($expectedKind -eq 'plugin') {
+            $pluginKey = $name.ToLowerInvariant()
+            if ($pluginsByName.ContainsKey($pluginKey)) {
+                throw 'Manifest contains duplicate plugin names.'
+            }
+            $pluginsByName[$pluginKey] = $file
+        }
     }
 
-    $loadOrder = @()
-    if ($null -ne $manifest.PSObject.Properties['loadOrder']) {
-        $loadOrder = @($manifest.loadOrder)
-        foreach ($entry in $loadOrder) {
-            if ([string]::IsNullOrWhiteSpace([string]$entry)) {
-                throw 'Manifest contains an invalid loadOrder entry.'
-            }
+    $loadOrderValue = Get-PropertyValue -InputObject $manifest -Name 'loadOrder'
+    if ($null -eq $loadOrderValue -or -not ($loadOrderValue -is [System.Collections.IEnumerable]) -or $loadOrderValue -is [string]) {
+        throw 'Manifest loadOrder must be an array.'
+    }
+    $loadOrder = @($loadOrderValue)
+    $loadOrderSeen = @{}
+    foreach ($entry in $loadOrder) {
+        if ($entry -isnot [string] -or [string]::IsNullOrWhiteSpace($entry)) {
+            throw 'Manifest contains an invalid loadOrder entry.'
         }
+        $entryKey = $entry.ToLowerInvariant()
+        if (-not $pluginsByName.ContainsKey($entryKey)) {
+            throw 'Manifest loadOrder entry is not an inventory plugin.'
+        }
+        if ($loadOrderSeen.ContainsKey($entryKey)) {
+            throw 'Manifest contains duplicate loadOrder entries.'
+        }
+        $loadOrderSeen[$entryKey] = $true
     }
 
     return [pscustomobject]@{
         displayName = Split-Path -Path $Path -Leaf
         filesByPath = $byPath
+        pluginsByName = $pluginsByName
         loadOrder = $loadOrder
     }
 }
@@ -138,19 +217,29 @@ try {
         }
 
         $baselineOrder = @($baseline.loadOrder | Where-Object {
-            $baseline.filesByPath.ContainsKey(([string]$_).ToLowerInvariant()) -and $candidate.filesByPath.ContainsKey(([string]$_).ToLowerInvariant())
+            $candidate.pluginsByName.ContainsKey(([string]$_).ToLowerInvariant())
         })
         $candidateOrder = @($candidate.loadOrder | Where-Object {
-            $baseline.filesByPath.ContainsKey(([string]$_).ToLowerInvariant()) -and $candidate.filesByPath.ContainsKey(([string]$_).ToLowerInvariant())
+            $baseline.pluginsByName.ContainsKey(([string]$_).ToLowerInvariant())
         })
         $candidatePositions = @{}
         for ($index = 0; $index -lt $candidateOrder.Count; $index++) {
             $candidatePositions[([string]$candidateOrder[$index]).ToLowerInvariant()] = $index
         }
+        $baselinePositions = @{}
+        for ($index = 0; $index -lt $baselineOrder.Count; $index++) {
+            $baselinePositions[([string]$baselineOrder[$index]).ToLowerInvariant()] = $index
+        }
         for ($index = 0; $index -lt $baselineOrder.Count; $index++) {
             $key = ([string]$baselineOrder[$index]).ToLowerInvariant()
-            if ($candidatePositions.ContainsKey($key) -and $candidatePositions[$key] -ne $index) {
-                [void]$orderDifferent.Add((New-DifferenceRecord -Manifest $candidate.displayName -RelativePath $baselineOrder[$index]))
+            if (-not $candidatePositions.ContainsKey($key) -or $candidatePositions[$key] -ne $index) {
+                [void]$orderDifferent.Add((New-DifferenceRecord -Manifest $candidate.displayName -RelativePath $baseline.pluginsByName[$key].relativePath))
+            }
+        }
+        for ($index = 0; $index -lt $candidateOrder.Count; $index++) {
+            $key = ([string]$candidateOrder[$index]).ToLowerInvariant()
+            if (-not $baselinePositions.ContainsKey($key)) {
+                [void]$orderDifferent.Add((New-DifferenceRecord -Manifest $candidate.displayName -RelativePath $candidate.pluginsByName[$key].relativePath))
             }
         }
     }

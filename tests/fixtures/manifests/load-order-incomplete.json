@@ -1,0 +1,8 @@
+{
+  "schema": "skyrim-engineering.creations/v1",
+  "files": [
+    { "name": "ccTEST-A.esl", "kind": "plugin", "size": 1, "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "pluginType": "esl", "internalFlag": "notInspected", "relativePath": "ccTEST-A.esl" },
+    { "name": "ccTEST-B.esl", "kind": "plugin", "size": 1, "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "pluginType": "esl", "internalFlag": "notInspected", "relativePath": "ccTEST-B.esl" }
+  ],
+  "loadOrder": ["ccTEST-A.esl"]
+}

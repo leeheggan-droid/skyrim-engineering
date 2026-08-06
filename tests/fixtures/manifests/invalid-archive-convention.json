@@ -1,0 +1,7 @@
+{
+  "schema": "skyrim-engineering.creations/v1",
+  "files": [
+    { "name": "ccTEST-A.bsa", "kind": "archive", "size": 1, "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "pluginType": "bsa", "internalFlag": "notInspected", "relativePath": "ccTEST-A.bsa" }
+  ],
+  "loadOrder": []
+}
