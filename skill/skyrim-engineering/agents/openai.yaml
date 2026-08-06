@@ -1,4 +1,4 @@
 interface:
   display_name: "Skyrim Engineering"
-  short_description: "Diagnose and engineer Skyrim SE/AE and Skyrim Together"
-  default_prompt: "Use the Skyrim engineering workflow to inspect evidence, diagnose the exact versioned problem, and produce a safe tested result."
+  short_description: "Evidence-led Skyrim SE/AE and Together engineering"
+  default_prompt: "Use the integration-first Skyrim engineering workflow: route to the owning reference, identify exact versions, reproduce safely, inspect upstream and prior art, test the smallest boundary, and return sanitized evidence with confidence and rollback steps."
