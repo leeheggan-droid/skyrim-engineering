@@ -123,6 +123,27 @@ function Get-StableSha256 {
     }
 }
 
+function Test-ApprovedCreationFile {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    $freeCreationIdentifiers = @(
+        'ccBGSSSE001-Fish.esm',
+        'ccBGSSSE025-AdvDSGS.esm',
+        'ccBGSSSE037-Curios.esl',
+        'ccQDRSSE001-SurvivalMode.esl'
+    )
+
+    if ($freeCreationIdentifiers -icontains $Name) {
+        return $true
+    }
+
+    return $Name -imatch '^cc.*\.(esl|esm|esp|bsa)$'
+}
+
 function Protect-DiagnosticText {
     [CmdletBinding()]
     param(
@@ -143,4 +164,4 @@ function Protect-DiagnosticText {
     return $protected
 }
 
-Export-ModuleMember -Function Resolve-SkyrimInstall, Get-RelativeSafePath, Get-StableSha256, Protect-DiagnosticText
+Export-ModuleMember -Function Resolve-SkyrimInstall, Get-RelativeSafePath, Get-StableSha256, Test-ApprovedCreationFile, Protect-DiagnosticText

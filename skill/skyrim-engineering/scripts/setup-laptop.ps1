@@ -33,7 +33,7 @@ param(
 
     [string]$ArchiveToolPath = 'C:\Program Files\7-Zip\7z.exe',
 
-    [ValidateSet('journalCreated', 'stageCreated', 'payloadExtracted', 'payloadVerified', 'filePublishIntent', 'filePublishedBeforeStatus', 'profilePublishIntent', 'profilePublishedBeforeStatus', 'profilePublished')]
+    [ValidateSet('journalCreated', 'stageCreated', 'payloadExtracted', 'payloadVerified', 'directoryPublishedBeforeStatus', 'filePublishIntent', 'filePublishedBeforeStatus', 'profilePublishIntent', 'profilePublishedBeforeStatus', 'profilePublished')]
     [string]$InterruptAfter,
 
     [ValidateRange(-1, 4096)]
@@ -44,6 +44,8 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$commonModule = Join-Path $PSScriptRoot 'SkyrimEngineering.Common.psm1'
+Import-Module $commonModule -Force
 
 function Get-NormalizedPath {
     param([Parameter(Mandatory = $true)][string]$Path)
@@ -467,10 +469,23 @@ namespace SkyrimEngineering {
 
         SafeFileHandle handle;
         public string Identity { get; private set; }
+        public string VolumeIdentity { get; private set; }
         public string FinalPath { get; private set; }
 
-        DirectoryLease(SafeFileHandle value, string identity, string finalPath) {
-            handle = value; Identity = identity; FinalPath = finalPath;
+        DirectoryLease(SafeFileHandle value, string identity, string volumeIdentity, string finalPath) {
+            handle = value; Identity = identity; VolumeIdentity = volumeIdentity; FinalPath = NormalizeFinalPath(finalPath);
+        }
+
+        static string NormalizeFinalPath(string path) {
+            string value = path.Replace('/', '\\');
+            while (value.Length > 7 && value.EndsWith("\\", StringComparison.Ordinal)) value = value.Substring(0, value.Length - 1);
+            return value;
+        }
+
+        static string ExpectedFinalPath(string path) {
+            string full = Path.GetFullPath(path);
+            if (!full.StartsWith(@"\\?\", StringComparison.Ordinal)) full = @"\\?\" + full;
+            return NormalizeFinalPath(full);
         }
 
         static DirectoryLease OpenCore(string path, bool directory, bool permitDeleteShare) {
@@ -486,13 +501,41 @@ namespace SkyrimEngineering {
             uint length = GetFinalPathNameByHandleW(value, buffer, (uint)buffer.Capacity, 0);
             if (length == 0 || length >= buffer.Capacity) { int error = Marshal.GetLastWin32Error(); value.Dispose(); throw new Win32Exception(error, "Could not resolve a physical path."); }
             ulong index = ((ulong)info.FileIndexHigh << 32) | info.FileIndexLow;
-            string identity = info.VolumeSerialNumber.ToString("x8") + ":" + index.ToString("x16");
-            return new DirectoryLease(value, identity, buffer.ToString());
+            string volumeIdentity = info.VolumeSerialNumber.ToString("x8");
+            string identity = volumeIdentity + ":" + index.ToString("x16");
+            return new DirectoryLease(value, identity, volumeIdentity, buffer.ToString());
         }
 
         public static DirectoryLease Open(string path) { return OpenCore(path, true, false); }
+        public static DirectoryLease OpenRoot(string path) {
+            DirectoryLease root = OpenCore(path, true, true);
+            if (!String.Equals(root.FinalPath, ExpectedFinalPath(path), StringComparison.OrdinalIgnoreCase)) {
+                root.Dispose();
+                throw new IOException("The explicit root did not resolve to its anchored physical path.");
+            }
+            return root;
+        }
+        public static DirectoryLease OpenContained(string path, DirectoryLease root) {
+            DirectoryLease current = OpenCore(path, true, false);
+            try { current.AssertContainedBy(root); return current; }
+            catch { current.Dispose(); throw; }
+        }
         public static string ReadFileIdentity(string path) { using (DirectoryLease lease = OpenCore(path, false, true)) { return lease.Identity; } }
         public static string ReadDirectoryIdentity(string path) { using (DirectoryLease lease = OpenCore(path, true, true)) { return lease.Identity; } }
+        public static string ReadFileIdentityContained(string path, DirectoryLease root) {
+            using (DirectoryLease lease = OpenCore(path, false, true)) { lease.AssertContainedBy(root); return lease.Identity; }
+        }
+        public static string ReadDirectoryIdentityContained(string path, DirectoryLease root) {
+            using (DirectoryLease lease = OpenCore(path, true, true)) { lease.AssertContainedBy(root); return lease.Identity; }
+        }
+        public void AssertContainedBy(DirectoryLease root) {
+            string rootPath = NormalizeFinalPath(root.FinalPath);
+            string childPath = NormalizeFinalPath(FinalPath);
+            if (!String.Equals(VolumeIdentity, root.VolumeIdentity, StringComparison.Ordinal) ||
+                (!String.Equals(childPath, rootPath, StringComparison.OrdinalIgnoreCase) &&
+                 !childPath.StartsWith(rootPath + "\\", StringComparison.OrdinalIgnoreCase)))
+                throw new IOException("Opened mutation parent is outside the anchored physical root.");
+        }
         public void AssertPathStillSame(string path) {
             using (DirectoryLease current = OpenCore(path, true, true)) {
                 if (!String.Equals(Identity, current.Identity, StringComparison.Ordinal) || !String.Equals(FinalPath, current.FinalPath, StringComparison.OrdinalIgnoreCase))
@@ -505,25 +548,48 @@ namespace SkyrimEngineering {
 '@
 }
 
-function Open-DirectoryLease {
+function Get-PhysicalRootAnchor {
     param([string]$Path)
+    $candidate = Get-NormalizedPath $Path
+    $best = $null
+    foreach ($entry in @($script:PhysicalRootAnchors)) {
+        if ([string]::Equals($candidate, $entry.path, [StringComparison]::OrdinalIgnoreCase) -or
+            $candidate.StartsWith($entry.path + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+            if ($null -eq $best -or $entry.path.Length -gt $best.path.Length) { $best = $entry }
+        }
+    }
+    if ($null -eq $best) { throw 'Mutation path has no anchored physical root.' }
+    return $best.lease
+}
+
+function Open-PhysicalRootAnchor {
+    param([string]$Path)
+    Initialize-PhysicalIdentityApi
+    return [SkyrimEngineering.DirectoryLease]::OpenRoot((Get-NormalizedPath $Path))
+}
+
+function Open-DirectoryLease {
+    param([string]$Path, $RootAnchor)
     Assert-NoReparseAncestor $Path
     Initialize-PhysicalIdentityApi
-    return [SkyrimEngineering.DirectoryLease]::Open((Get-NormalizedPath $Path))
+    if ($null -eq $RootAnchor) { $RootAnchor = Get-PhysicalRootAnchor $Path }
+    return [SkyrimEngineering.DirectoryLease]::OpenContained((Get-NormalizedPath $Path), $RootAnchor)
 }
 
 function Get-FilePhysicalIdentity {
-    param([string]$Path)
+    param([string]$Path, $RootAnchor)
     Assert-NoReparseAncestor $Path
     Initialize-PhysicalIdentityApi
-    return [SkyrimEngineering.DirectoryLease]::ReadFileIdentity((Get-NormalizedPath $Path))
+    if ($null -eq $RootAnchor) { $RootAnchor = Get-PhysicalRootAnchor $Path }
+    return [SkyrimEngineering.DirectoryLease]::ReadFileIdentityContained((Get-NormalizedPath $Path), $RootAnchor)
 }
 
 function Get-DirectoryPhysicalIdentity {
-    param([string]$Path)
+    param([string]$Path, $RootAnchor)
     Assert-NoReparseAncestor $Path
     Initialize-PhysicalIdentityApi
-    return [SkyrimEngineering.DirectoryLease]::ReadDirectoryIdentity((Get-NormalizedPath $Path))
+    if ($null -eq $RootAnchor) { $RootAnchor = Get-PhysicalRootAnchor $Path }
+    return [SkyrimEngineering.DirectoryLease]::ReadDirectoryIdentityContained((Get-NormalizedPath $Path), $RootAnchor)
 }
 
 function Invoke-GuardedFileMove {
@@ -617,7 +683,8 @@ function New-Audit {
     $archiveItems = @($inventory | Where-Object { $_.root -eq 'game' -and [IO.Path]::GetExtension($_.relativePath).ToLowerInvariant() -in @('.bsa', '.ba2') } |
         ForEach-Object { [pscustomobject][ordered]@{ opaqueId = Get-OpaqueId ("archive|$($_.root)|$($_.relativePath)|$($_.sha256)"); sha256 = $_.sha256 } })
     $creationItems = @($inventory | Where-Object {
-        $_.root -eq 'game' -and $_.relativePath -match '(?i)^Data/cc[^/]*\.(esm|esl|esp|bsa|ba2)$'
+        $_.root -eq 'game' -and $_.relativePath -match '(?i)^Data/[^/]+$' -and
+            (Test-ApprovedCreationFile -Name ([IO.Path]::GetFileName([string]$_.relativePath)))
     } | ForEach-Object {
         $extension = [IO.Path]::GetExtension($_.relativePath).ToLowerInvariant()
         [pscustomobject][ordered]@{
@@ -682,12 +749,12 @@ function Get-ExpectedMutations {
                 $directories[$directoryKey] = [pscustomobject]@{ root = [string]$mapping.destinationRoot; relativePath = $portable }
                 $parent = [IO.Path]::GetDirectoryName($parent)
             }
-            [void]$files.Add([pscustomobject][ordered]@{ type = 'createFile'; root = [string]$mapping.destinationRoot; relativePath = $relative; bytes = [long]$mapping.bytes; sha256 = [string]$mapping.sha256; catalogId = [string]$package.catalogId; status = 'planned'; sourceRelativePath = $null; fileIdentity = $null })
+            [void]$files.Add([pscustomobject][ordered]@{ type = 'createFile'; root = [string]$mapping.destinationRoot; relativePath = $relative; bytes = [long]$mapping.bytes; sha256 = [string]$mapping.sha256; catalogId = [string]$package.catalogId; preExisting = $false; preMutationIdentity = $null; status = 'planned'; sourceRelativePath = $null; fileIdentity = $null })
         }
     }
     $mutations = New-Object Collections.ArrayList
     foreach ($directory in @($directories.Values | Sort-Object root, { ($_.relativePath -split '/').Count }, relativePath)) {
-        [void]$mutations.Add([pscustomobject][ordered]@{ type = 'createDirectory'; root = [string]$directory.root; relativePath = [string]$directory.relativePath; bytes = $null; sha256 = $null; catalogId = $null; status = 'planned'; sourceRelativePath = $null; fileIdentity = $null })
+        [void]$mutations.Add([pscustomobject][ordered]@{ type = 'createDirectory'; root = [string]$directory.root; relativePath = [string]$directory.relativePath; bytes = $null; sha256 = $null; catalogId = $null; preExisting = $false; preMutationIdentity = $null; status = 'planned'; sourceRelativePath = $null; fileIdentity = $null })
     }
     foreach ($file in @($files | Sort-Object root, relativePath)) { [void]$mutations.Add($file) }
     return @($mutations)
@@ -741,6 +808,21 @@ function Write-StateAtomic {
             finally { $cleanupLease.Dispose() }
         }
     }
+}
+
+function Get-PreflightOwnershipSha256 {
+    param($Mutations)
+    $facts = @($Mutations | ForEach-Object {
+        [pscustomobject][ordered]@{
+            type = [string]$_.type; root = [string]$_.root; relativePath = [string]$_.relativePath
+            bytes = $_.bytes; sha256 = $_.sha256; catalogId = $_.catalogId
+            preExisting = [bool]$_.preExisting; preMutationIdentity = $_.preMutationIdentity
+        }
+    })
+    $bytes = (New-Object Text.UTF8Encoding($false)).GetBytes(($facts | ConvertTo-Json -Depth 6 -Compress))
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    try { return (($algorithm.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') }) -join '') }
+    finally { $algorithm.Dispose() }
 }
 
 function Assert-SourcePackage {
@@ -827,7 +909,12 @@ function Set-MutationPreflight {
     $path = Get-MutationPath $Mutation $Game $Profiles
     Assert-NoReparseAncestor $path
     if ($Mutation.type -ceq 'createDirectory') {
-        if (Test-Path -LiteralPath $path -PathType Container) { $Mutation.status = 'preExisting'; $Mutation.fileIdentity = Get-DirectoryPhysicalIdentity $path }
+        if (Test-Path -LiteralPath $path -PathType Container) {
+            $Mutation.preExisting = $true
+            $Mutation.preMutationIdentity = Get-DirectoryPhysicalIdentity $path
+            $Mutation.status = 'preExisting'
+            $Mutation.fileIdentity = $Mutation.preMutationIdentity
+        }
         elseif (Test-Path -LiteralPath $path) { throw 'An existing non-directory destination was refused.' }
     }
     else {
@@ -836,8 +923,10 @@ function Set-MutationPreflight {
             if ($item.Length -ne [long]$Mutation.bytes -or (Get-LowerHash $path) -cne $Mutation.sha256) {
                 throw 'An existing SKSE destination has a different hash; Apply must refuse overwrite.'
             }
+            $Mutation.preExisting = $true
+            $Mutation.preMutationIdentity = Get-FilePhysicalIdentity $path
             $Mutation.status = 'preExisting'
-            $Mutation.fileIdentity = Get-FilePhysicalIdentity $path
+            $Mutation.fileIdentity = $Mutation.preMutationIdentity
         }
         elseif (Test-Path -LiteralPath $path) { throw 'An existing non-file SKSE destination was refused.' }
     }
@@ -879,7 +968,8 @@ function Invoke-ApplyTransaction {
     [Security.Cryptography.RandomNumberGenerator]::Fill($ownershipBytes)
     $ownershipToken = ($ownershipBytes | ForEach-Object { $_.ToString('x2') }) -join ''
     $stageRelative = '.skyrim-engineering-stage-' + $transactionId
-    $state = [pscustomobject][ordered]@{ schema = 'skyrim-engineering.laptop-state/v1'; clientId = $ClientId; status = 'applying'; phase = 'journalCreated'; operation = 'approved7zInstall'; transactionId = $transactionId; stagingRelativePath = $stageRelative; ownershipToken = $ownershipToken; manifestSha256 = Get-LowerHash $ManifestPath; catalogSha256 = $Catalog.sha256; mutations = $mutations }
+    $preflightOwnershipSha256 = Get-PreflightOwnershipSha256 $mutations
+    $state = [pscustomobject][ordered]@{ schema = 'skyrim-engineering.laptop-state/v1'; clientId = $ClientId; status = 'applying'; phase = 'journalCreated'; operation = 'approved7zInstall'; transactionId = $transactionId; stagingRelativePath = $stageRelative; ownershipToken = $ownershipToken; preflightOwnershipSha256 = $preflightOwnershipSha256; manifestSha256 = Get-LowerHash $ManifestPath; catalogSha256 = $Catalog.sha256; mutations = $mutations }
     Write-StateAtomic $state $statePath -CreateNew
     Test-QualificationInterrupt 'journalCreated'
     try {
@@ -922,12 +1012,22 @@ function Invoke-ApplyTransaction {
         $state.phase = 'payloadVerified'; Write-StateAtomic $state $statePath
         Test-QualificationInterrupt 'payloadVerified'
 
+        $directoryIntentRoot = Join-Path $stage 'directory-intents'
+        New-GuardedDirectory $directoryIntentRoot
+        $directoryIndex = 0
         foreach ($mutation in @($state.mutations | Where-Object { $_.type -eq 'createDirectory' -and $_.root -eq 'game' -and $_.status -eq 'planned' } | Sort-Object { ($_.relativePath -split '/').Count }, relativePath)) {
-            $mutation.status = 'creating'; Write-StateAtomic $state $statePath
+            $sourceRelativePath = 'directory-intents/' + $directoryIndex.ToString('0000')
+            $sourcePath = Join-Path $stage $sourceRelativePath.Replace('/', [IO.Path]::DirectorySeparatorChar)
+            New-GuardedDirectory $sourcePath
+            $mutation.sourceRelativePath = $sourceRelativePath
+            $mutation.fileIdentity = Get-DirectoryPhysicalIdentity $sourcePath
+            $mutation.status = 'publishing'; Write-StateAtomic $state $statePath
             $path = Get-MutationPath $mutation $Game $Profiles
-            New-GuardedDirectory $path
-            $mutation.fileIdentity = Get-DirectoryPhysicalIdentity $path
+            Invoke-GuardedDirectoryMove $sourcePath $path
+            Test-QualificationInterrupt 'directoryPublishedBeforeStatus' $directoryIndex
+            if ((Get-DirectoryPhysicalIdentity $path) -cne $mutation.fileIdentity) { throw 'Published game directory identity changed.' }
             $mutation.status = 'complete'; Write-StateAtomic $state $statePath
+            $directoryIndex++
         }
 
         $publishIndex = 0
@@ -967,7 +1067,7 @@ function Assert-JournalAllowlist {
     param($State, $Manifest, $Catalog, [string]$ManifestPath)
     if ($State.schema -cne 'skyrim-engineering.laptop-state/v1' -or $State.clientId -cne $ClientId -or $State.status -cnotin @('applying', 'applied') -or
         $State.operation -cne 'approved7zInstall' -or $State.transactionId -cnotmatch '^[a-f0-9]{32}$' -or
-        $State.stagingRelativePath -cne ('.skyrim-engineering-stage-' + [string]$State.transactionId) -or $State.ownershipToken -cnotmatch '^[a-f0-9]{64}$' -or
+        $State.stagingRelativePath -cne ('.skyrim-engineering-stage-' + [string]$State.transactionId) -or $State.ownershipToken -cnotmatch '^[a-f0-9]{64}$' -or $State.preflightOwnershipSha256 -cnotmatch '^[a-f0-9]{64}$' -or
         $State.phase -cnotin @('journalCreated', 'stageCreated', 'payloadExtracted', 'payloadVerified', 'profilePublished', 'cleanupComplete') -or
         $State.manifestSha256 -cne (Get-LowerHash $ManifestPath) -or $State.catalogSha256 -cne $Catalog.sha256) {
         throw 'State journal identity or trusted manifest binding is invalid.'
@@ -975,6 +1075,7 @@ function Assert-JournalAllowlist {
     $expected = @(Get-ExpectedMutations $Manifest $Catalog)
     $actual = @($State.mutations)
     if ($actual.Count -ne $expected.Count) { throw 'State journal mutation set does not match the trusted allowlist.' }
+    if ((Get-PreflightOwnershipSha256 $actual) -cne $State.preflightOwnershipSha256) { throw 'State journal preflight ownership binding is invalid.' }
     $seen = @{}
     for ($index = 0; $index -lt $expected.Count; $index++) {
         $want = $expected[$index]; $have = $actual[$index]
@@ -983,6 +1084,10 @@ function Assert-JournalAllowlist {
             [string]$have.bytes -cne [string]$want.bytes -or [string]$have.sha256 -cne [string]$want.sha256 -or [string]$have.catalogId -cne [string]$want.catalogId -or
             $have.status -cnotin @('planned', 'preExisting', 'creating', 'staged', 'publishing', 'complete')) {
             throw 'State journal contains duplicate, altered, or non-allowlisted mutations.'
+        }
+        if (($have.preExisting -eq $true -and ($have.status -cne 'preExisting' -or [string]$have.preMutationIdentity -cne [string]$have.fileIdentity)) -or
+            ($have.preExisting -ne $true -and ($have.status -ceq 'preExisting' -or $null -ne $have.preMutationIdentity))) {
+            throw 'State journal ownership lifecycle conflicts with independently bound pre-mutation facts.'
         }
         $seen[$key] = $true
     }
@@ -1012,14 +1117,14 @@ function Invoke-RollbackTransaction {
     $state = Read-JsonFile $statePath 'Client state journal'
     $mutations = @(Assert-JournalAllowlist $state $Manifest $Catalog $ManifestPath)
     Remove-OwnedStage $state $States
-    foreach ($mutation in @($mutations | Where-Object { $_.type -eq 'createFile' -and $_.status -in @('publishing', 'complete') } | Sort-Object root, relativePath -Descending)) {
+    foreach ($mutation in @($mutations | Where-Object { $_.type -eq 'createFile' -and $_.preExisting -ne $true -and $_.status -in @('publishing', 'complete') } | Sort-Object root, relativePath -Descending)) {
         $path = Get-MutationPath $mutation $Game $Profiles
         if (Test-Path -LiteralPath $path -PathType Leaf) {
             $quarantine = Join-Path $States ('.' + $ClientId + '.' + [guid]::NewGuid().ToString('N') + '.rollback.tmp')
             Move-Verify-DeleteFile $path ([string]$mutation.sha256) ([string]$mutation.fileIdentity) $quarantine
         }
     }
-    foreach ($mutation in @($mutations | Where-Object { $_.type -eq 'createDirectory' -and $_.status -in @('publishing', 'complete') } | Sort-Object { ([string]$_.relativePath).Length } -Descending)) {
+    foreach ($mutation in @($mutations | Where-Object { $_.type -eq 'createDirectory' -and $_.preExisting -ne $true -and $_.status -in @('publishing', 'complete') } | Sort-Object { ([string]$_.relativePath).Length } -Descending)) {
         $path = Get-MutationPath $mutation $Game $Profiles
         Assert-NoReparseAncestor $path
         if ((Test-Path -LiteralPath $path -PathType Container) -and @(Get-ChildItem -LiteralPath $path -Force).Count -eq 0 -and (Get-DirectoryPhysicalIdentity $path) -ceq $mutation.fileIdentity) {
@@ -1044,37 +1149,45 @@ $game = Get-NormalizedPath $GameRoot
 $profiles = Get-NormalizedPath $ProfileRoot
 $manifestPath = Get-NormalizedPath $CanonicalManifest
 $states = Get-NormalizedPath $StateDirectory
-foreach ($root in @($game, $profiles, $states)) {
-    if (-not (Test-Path -LiteralPath $root -PathType Container)) { throw 'GameRoot, ProfileRoot, and StateDirectory must be existing explicit directories.' }
-    Assert-NoReparseAncestor $root
-}
-Assert-DisjointRoots @($game, $profiles, $states)
-$tools = $null
-if (-not [string]::IsNullOrWhiteSpace($ToolRoot)) {
-    Assert-FullyQualifiedLocalPath $ToolRoot
-    $tools = Get-NormalizedPath $ToolRoot
-    if (-not (Test-Path -LiteralPath $tools -PathType Container)) { throw 'ToolRoot must be an existing explicit directory.' }
-    Assert-NoReparseAncestor $tools
-    Assert-DisjointRoots @($game, $profiles, $states, $tools)
-}
-if ($Apply) {
-    if ([string]::IsNullOrWhiteSpace($PackageCache)) { throw 'Apply requires an explicit -PackageCache.' }
-    Assert-FullyQualifiedLocalPath $PackageCache
-    $packageCachePath = Get-NormalizedPath $PackageCache
-    if (-not (Test-Path -LiteralPath $packageCachePath -PathType Container)) { throw 'PackageCache must be an existing explicit directory.' }
-    Assert-NoReparseAncestor $packageCachePath
-    Assert-DisjointRoots @($game, $profiles, $states, $packageCachePath)
-    if ([IO.Path]::GetPathRoot($profiles) -cne [IO.Path]::GetPathRoot($states) -or [IO.Path]::GetPathRoot($game) -cne [IO.Path]::GetPathRoot($states)) {
-        throw 'GameRoot, ProfileRoot, and StateDirectory must be on the same volume for recoverable publication and rollback.'
+$script:PhysicalRootAnchors = New-Object Collections.ArrayList
+try {
+    foreach ($root in @($game, $profiles, $states)) {
+        if (-not (Test-Path -LiteralPath $root -PathType Container)) { throw 'GameRoot, ProfileRoot, and StateDirectory must be existing explicit directories.' }
+        Assert-NoReparseAncestor $root
+        $anchor = Open-PhysicalRootAnchor $root
+        [void]$script:PhysicalRootAnchors.Add([pscustomobject]@{ path = $root; lease = $anchor })
     }
-}
-Assert-NoReparseAncestor $manifestPath
-$catalogPath = Get-NormalizedPath (Join-Path $PSScriptRoot '..\references\laptop-package-catalog.json')
-$catalog = Read-PackageCatalog $catalogPath
-$manifest = Read-CanonicalManifest $manifestPath $catalog
+    Assert-DisjointRoots @($game, $profiles, $states)
+    $tools = $null
+    if (-not [string]::IsNullOrWhiteSpace($ToolRoot)) {
+        Assert-FullyQualifiedLocalPath $ToolRoot
+        $tools = Get-NormalizedPath $ToolRoot
+        if (-not (Test-Path -LiteralPath $tools -PathType Container)) { throw 'ToolRoot must be an existing explicit directory.' }
+        Assert-NoReparseAncestor $tools
+        Assert-DisjointRoots @($game, $profiles, $states, $tools)
+    }
+    if ($Apply) {
+        if ([string]::IsNullOrWhiteSpace($PackageCache)) { throw 'Apply requires an explicit -PackageCache.' }
+        Assert-FullyQualifiedLocalPath $PackageCache
+        $packageCachePath = Get-NormalizedPath $PackageCache
+        if (-not (Test-Path -LiteralPath $packageCachePath -PathType Container)) { throw 'PackageCache must be an existing explicit directory.' }
+        Assert-NoReparseAncestor $packageCachePath
+        Assert-DisjointRoots @($game, $profiles, $states, $packageCachePath)
+        if ([IO.Path]::GetPathRoot($profiles) -cne [IO.Path]::GetPathRoot($states) -or [IO.Path]::GetPathRoot($game) -cne [IO.Path]::GetPathRoot($states)) {
+            throw 'GameRoot, ProfileRoot, and StateDirectory must be on the same volume for recoverable publication and rollback.'
+        }
+    }
+    Assert-NoReparseAncestor $manifestPath
+    $catalogPath = Get-NormalizedPath (Join-Path $PSScriptRoot '..\references\laptop-package-catalog.json')
+    $catalog = Read-PackageCatalog $catalogPath
+    $manifest = Read-CanonicalManifest $manifestPath $catalog
 
-if ($AuditOnly) { New-Audit $manifest $catalog 'auditOnly' $game $profiles $tools | ConvertTo-Json -Depth 10 -Compress }
-elseif ($Plan) { $audit = New-Audit $manifest $catalog 'plan' $game $profiles $tools; New-Plan $manifest $catalog $audit $profiles | ConvertTo-Json -Depth 10 -Compress }
-elseif ($Apply) { $result = Invoke-ApplyTransaction $manifest $catalog $manifestPath $game $profiles $states $packageCachePath $ArchiveToolPath; if ($null -ne $result) { $result | ConvertTo-Json -Depth 12 -Compress } }
-elseif ($Verify) { New-Audit $manifest $catalog 'verify' $game $profiles $tools | ConvertTo-Json -Depth 10 -Compress }
-elseif ($Rollback) { $result = Invoke-RollbackTransaction $manifest $catalog $manifestPath $game $profiles $states; if ($null -ne $result) { $result | ConvertTo-Json -Depth 12 -Compress } }
+    if ($AuditOnly) { New-Audit $manifest $catalog 'auditOnly' $game $profiles $tools | ConvertTo-Json -Depth 10 -Compress }
+    elseif ($Plan) { $audit = New-Audit $manifest $catalog 'plan' $game $profiles $tools; New-Plan $manifest $catalog $audit $profiles | ConvertTo-Json -Depth 10 -Compress }
+    elseif ($Apply) { $result = Invoke-ApplyTransaction $manifest $catalog $manifestPath $game $profiles $states $packageCachePath $ArchiveToolPath; if ($null -ne $result) { $result | ConvertTo-Json -Depth 12 -Compress } }
+    elseif ($Verify) { New-Audit $manifest $catalog 'verify' $game $profiles $tools | ConvertTo-Json -Depth 10 -Compress }
+    elseif ($Rollback) { $result = Invoke-RollbackTransaction $manifest $catalog $manifestPath $game $profiles $states; if ($null -ne $result) { $result | ConvertTo-Json -Depth 12 -Compress } }
+}
+finally {
+    foreach ($entry in @($script:PhysicalRootAnchors)) { if ($null -ne $entry.lease) { $entry.lease.Dispose() } }
+}

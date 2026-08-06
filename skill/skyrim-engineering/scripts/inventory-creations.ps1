@@ -14,30 +14,6 @@ $ErrorActionPreference = 'Stop'
 $commonModule = Join-Path $PSScriptRoot 'SkyrimEngineering.Common.psm1'
 Import-Module $commonModule -Force
 
-function Test-ApprovedCreationFile {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Name
-    )
-
-    # These four are supplied free with current Special Edition releases.  Keep
-    # the explicit set so the supported inventory scope is auditable if naming
-    # conventions ever change.
-    $freeCreationIdentifiers = @(
-        'ccBGSSSE001-Fish.esm',
-        'ccBGSSSE025-AdvDSGS.esm',
-        'ccBGSSSE037-Curios.esl',
-        'ccQDRSSE001-SurvivalMode.esl'
-    )
-
-    if ($freeCreationIdentifiers -icontains $Name) {
-        return $true
-    }
-
-    return $Name -imatch '^cc.*\.(esl|esm|esp|bsa)$'
-}
-
 if (-not (Test-Path -LiteralPath $DataPath -PathType Container)) {
     throw 'DataPath must be an existing Skyrim Data directory.'
 }

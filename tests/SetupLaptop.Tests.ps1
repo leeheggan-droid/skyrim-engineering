@@ -15,7 +15,7 @@ Describe 'setup-laptop safe bootstrap' {
             if ($null -eq $definition) { throw "Missing setup function: $Name" }
             Invoke-Expression ($definition.Extent.Text -replace ('^function\s+' + [regex]::Escape($Name)), ('function script:' + $Name))
         }
-        foreach ($name in @('Convert-ToPortablePath', 'Assert-SafeRelativePath', 'Get-NormalizedPath', 'Assert-NoReparseAncestor', 'Get-LowerHash', 'Assert-ContainedPath', 'Assert-SourcePackage', 'Initialize-PhysicalIdentityApi', 'Open-DirectoryLease')) {
+        foreach ($name in @('Convert-ToPortablePath', 'Assert-SafeRelativePath', 'Get-NormalizedPath', 'Assert-NoReparseAncestor', 'Get-LowerHash', 'Assert-ContainedPath', 'Assert-SourcePackage', 'Initialize-PhysicalIdentityApi', 'Open-PhysicalRootAnchor', 'Open-DirectoryLease', 'Get-FilePhysicalIdentity')) {
             Import-SetupFunction $name
         }
 
@@ -251,11 +251,17 @@ Describe 'setup-laptop safe bootstrap' {
         $audit.domains.archives.items[0].sha256 | Should -Match '^[0-9a-f]{64}$'
     }
 
-    It 'derives creations only from the cc-prefixed plugin and archive subset at the explicit game root' {
+    It 'uses the exact canonical Creation classifier and excludes cc-prefixed BA2 archives' {
         Copy-Item -LiteralPath (Get-Command pwsh).Source -Destination (Join-Path $toolRoot 'ModOrganizer.exe')
         New-Item -ItemType Directory -Path (Join-Path $profileRoot 'Profile One'), (Join-Path $gameRoot 'Data') -Force | Out-Null
-        Set-Content -LiteralPath (Join-Path $gameRoot 'Data\ccApproved.esm') -Value 'creation plugin' -NoNewline
-        Set-Content -LiteralPath (Join-Path $gameRoot 'Data\ccApproved.bsa') -Value 'creation archive' -NoNewline
+        foreach ($name in @(
+            'ccApproved.esl', 'ccApproved.esm', 'ccApproved.esp', 'ccApproved.bsa',
+            'ccBGSSSE001-Fish.esm', 'ccBGSSSE025-AdvDSGS.esm',
+            'ccBGSSSE037-Curios.esl', 'ccQDRSSE001-SurvivalMode.esl'
+        )) {
+            Set-Content -LiteralPath (Join-Path $gameRoot ('Data\' + $name)) -Value $name -NoNewline
+        }
+        Set-Content -LiteralPath (Join-Path $gameRoot 'Data\ccNotACreation.ba2') -Value 'excluded cc archive' -NoNewline
         Set-Content -LiteralPath (Join-Path $gameRoot 'Data\Ordinary.esp') -Value 'ordinary plugin' -NoNewline
         Set-Content -LiteralPath (Join-Path $gameRoot 'Data\Another.esl') -Value 'ordinary light plugin' -NoNewline
         Set-Content -LiteralPath (Join-Path $gameRoot 'Data\Ordinary.bsa') -Value 'ordinary archive' -NoNewline
@@ -267,10 +273,11 @@ Describe 'setup-laptop safe bootstrap' {
         $audit.domains.modManager.status | Should -Be 'observed'
         $audit.domains.modManager.executable.sha256 | Should -Match '^[0-9a-f]{64}$'
         @($audit.domains.profiles.items).Count | Should -Be 1
-        @($audit.domains.creations.items).Count | Should -Be 2
-        @($audit.domains.creations.items.kind | Sort-Object) | Should -Be @('archive', 'plugin')
-        @($audit.domains.plugins.items).Count | Should -Be 3
-        @($audit.domains.archives.items).Count | Should -Be 3
+        @($audit.domains.creations.items).Count | Should -Be 8
+        @($audit.domains.creations.items | Where-Object kind -eq 'plugin').Count | Should -Be 7
+        @($audit.domains.creations.items | Where-Object kind -eq 'archive').Count | Should -Be 1
+        @($audit.domains.plugins.items).Count | Should -Be 9
+        @($audit.domains.archives.items).Count | Should -Be 4
         $audit.domains.addressLibrary.status | Should -Be 'unsupportedPendingIntake'
         $audit.domains.skyrimTogether.status | Should -Be 'unsupportedPendingIntake'
     }
@@ -340,6 +347,17 @@ Describe 'setup-laptop safe bootstrap' {
         Test-Path -LiteralPath (Join-Path $gameRoot 'skse64_loader.exe') | Should -BeFalse
     }
 
+    It 'recovers a crash after each game directory is published but before completion is recorded' -ForEach @(0, 1) {
+        { Invoke-LaptopSetup -Mode Apply -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot -ConfirmApply -InterruptAfter directoryPublishedBeforeStatus -InterruptMutationIndex $_ } |
+            Should -Throw '*simulated interruption*directoryPublishedBeforeStatus*'
+
+        $interrupted = Get-Content -LiteralPath (Join-Path $stateRoot 'client-a.state.json') -Raw | ConvertFrom-Json
+        @($interrupted.mutations | Where-Object { $_.type -eq 'createDirectory' -and $_.status -eq 'publishing' }).Count | Should -Be 1
+        { Invoke-LaptopSetup -Mode Rollback -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot } | Should -Not -Throw
+        Test-Path -LiteralPath (Join-Path $gameRoot 'Data\Scripts') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $gameRoot 'Data') | Should -BeFalse
+    }
+
     It 'recovers journal-owned staging after interruption at every transaction boundary' -ForEach @(
         'journalCreated', 'stageCreated', 'payloadExtracted', 'payloadVerified', 'profilePublished'
     ) {
@@ -392,6 +410,29 @@ Describe 'setup-laptop safe bootstrap' {
 
         Test-Path -LiteralPath $unrelated -PathType Leaf | Should -BeTrue
         Test-Path -LiteralPath (Join-Path $gameRoot 'skse64_loader.exe') | Should -BeFalse
+    }
+
+    It 'detects a pre-existing ownership status flip and never deletes the exact user-owned SKSE file' {
+        & $sevenZip e -y ("-o$gameRoot") -- $officialSkseArchive 'skse64_2_02_06\skse64_loader.exe' | Out-Null
+        $LASTEXITCODE | Should -Be 0
+        $existing = Join-Path $gameRoot 'skse64_loader.exe'
+        $identityAnchor = Open-PhysicalRootAnchor $gameRoot
+        try { $beforeIdentity = Get-FilePhysicalIdentity $existing $identityAnchor }
+        finally { $identityAnchor.Dispose() }
+        Invoke-LaptopSetup -Mode Apply -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot -ConfirmApply | Out-Null
+        $statePath = Join-Path $stateRoot 'client-a.state.json'
+        $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+        $loader = @($state.mutations | Where-Object relativePath -eq 'skse64_loader.exe')[0]
+        $loader.status | Should -Be 'preExisting'
+        $loader.status = 'complete'
+        $state | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $statePath
+
+        { Invoke-LaptopSetup -Mode Rollback -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot } |
+            Should -Throw '*ownership*'
+        Test-Path -LiteralPath $existing -PathType Leaf | Should -BeTrue
+        $identityAnchor = Open-PhysicalRootAnchor $gameRoot
+        try { (Get-FilePhysicalIdentity $existing $identityAnchor) | Should -BeExactly $beforeIdentity }
+        finally { $identityAnchor.Dispose() }
     }
 
     It 'never removes unrelated files placed at predictable temporary journal names' {
@@ -456,16 +497,35 @@ Describe 'setup-laptop safe bootstrap' {
     }
 
     It 'holds a no-delete-share identity lease across the destination parent mutation window' {
-        $parent = Join-Path $caseRoot 'leased-parent'
+        $leaseRoot = Join-Path $caseRoot 'lease-root'
+        $parent = Join-Path $leaseRoot 'leased-parent'
         New-Item -ItemType Directory -Path $parent | Out-Null
-        $lease = Open-DirectoryLease $parent
+        $anchor = Open-PhysicalRootAnchor $leaseRoot
+        $lease = Open-DirectoryLease $parent $anchor
         try {
             { Rename-Item -LiteralPath $parent -NewName 'raced-parent' -ErrorAction Stop } | Should -Throw
             { $lease.AssertPathStillSame($parent) } | Should -Not -Throw
         }
-        finally { $lease.Dispose() }
+        finally { $lease.Dispose(); $anchor.Dispose() }
 
         { Rename-Item -LiteralPath $parent -NewName 'released-parent' -ErrorAction Stop } | Should -Not -Throw
+    }
+
+    It 'rejects a parent handle reached through a redirected higher ancestor outside its anchored physical root' {
+        Initialize-PhysicalIdentityApi
+        $intendedRoot = Join-Path $caseRoot 'anchored-game'
+        $data = Join-Path $intendedRoot 'Data'
+        $outside = Join-Path $caseRoot 'outside-tree'
+        New-Item -ItemType Directory -Path $data, (Join-Path $outside 'Scripts') -Force | Out-Null
+        $anchor = [SkyrimEngineering.DirectoryLease]::OpenRoot($intendedRoot)
+        try {
+            Rename-Item -LiteralPath $data -NewName 'Data-original'
+            New-Item -ItemType Junction -Path $data -Target $outside | Out-Null
+
+            { [SkyrimEngineering.DirectoryLease]::OpenContained((Join-Path $data 'Scripts'), $anchor) } |
+                Should -Throw '*outside the anchored physical root*'
+        }
+        finally { $anchor.Dispose() }
     }
 
     It 'does not let a caller manifest self-authorize arbitrary saves archives or packages' {
