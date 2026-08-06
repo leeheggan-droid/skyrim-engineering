@@ -1,0 +1,115 @@
+{
+  "rubricVersion": "1.0",
+  "domainThresholdPercent": 80,
+  "overallThresholdPercent": 90,
+  "awarded": 76,
+  "maximum": 100,
+  "gateStatus": "BLOCKED",
+  "domains": [
+    {
+      "id": "data-model",
+      "awarded": 12,
+      "maximum": 15,
+      "status": "PASS",
+      "automaticBlock": false,
+      "items": [
+        {"id": "formid-roundtrip-bounds", "awarded": 4, "maximum": 4, "evidence": ["tests/fixtures/data-model/cases.json"]},
+        {"id": "master-relative-missing-master", "awarded": 3, "maximum": 4, "evidence": ["tests/fixtures/data-model/cases.json"]},
+        {"id": "three-record-chain-patch-compaction", "awarded": 3, "maximum": 4, "evidence": ["tests/fixtures/data-model/cases.json"]},
+        {"id": "plugin-assets-localization-plan", "awarded": 2, "maximum": 3, "evidence": ["docs/expertise/practicals.md"]}
+      ]
+    },
+    {
+      "id": "creation-kit",
+      "awarded": 5,
+      "maximum": 15,
+      "status": "BLOCKED",
+      "automaticBlock": true,
+      "items": [
+        {"id": "fixture-practical", "awarded": 2, "maximum": 5, "evidence": ["tests/fixtures/ck/README.md", "tests/fixtures/xedit/CreateOriginalFixture.pas"]},
+        {"id": "interaction-explanation", "awarded": 1, "maximum": 4, "evidence": ["tests/fixtures/ck/ck-v3-structural-dump.txt"]},
+        {"id": "cell-navmesh-finalization", "awarded": 0, "maximum": 3, "evidence": ["tests/fixtures/ck/README.md"]},
+        {"id": "provenance-package-rollback", "awarded": 2, "maximum": 3, "evidence": ["tests/fixtures/ck/README.md"]}
+      ]
+    },
+    {
+      "id": "xedit",
+      "awarded": 7,
+      "maximum": 10,
+      "status": "BLOCKED",
+      "automaticBlock": false,
+      "items": [
+        {"id": "read-only-inspection", "awarded": 3, "maximum": 3, "evidence": ["tests/fixtures/xedit/fresh-replay.json", "tests/fixtures/xedit/first-pass-inspection.txt", "tests/fixtures/xedit/second-pass-inspection.txt", "tests/fixtures/xedit/InspectReadOnly.pas"]},
+        {"id": "conflict-missing-master", "awarded": 2, "maximum": 3, "evidence": ["tests/fixtures/data-model/cases.json"]},
+        {"id": "minimal-patch-reopen", "awarded": 0, "maximum": 2, "evidence": ["tests/fixtures/xedit/xedit-minimal-patch-contract.json", "tests/fixtures/xedit/CreateMinimalPatch.pas", "tests/fixtures/xedit/VerifyMinimalPatch.pas"]},
+        {"id": "cleaning-scripting-boundaries", "awarded": 2, "maximum": 2, "evidence": ["docs/expertise/practicals.md"]}
+      ]
+    },
+    {
+      "id": "papyrus",
+      "awarded": 8,
+      "maximum": 10,
+      "status": "BLOCKED",
+      "automaticBlock": true,
+      "items": [
+        {"id": "real-compile", "awarded": 3, "maximum": 3, "evidence": ["tests/fixtures/papyrus/compiler-evidence.txt"]},
+        {"id": "deliberate-error", "awarded": 2, "maximum": 2, "evidence": ["tests/fixtures/papyrus/compiler-evidence.txt"]},
+        {"id": "vm-events-logs-persistence", "awarded": 2, "maximum": 3, "evidence": ["docs/expertise/practicals.md"]},
+        {"id": "migration-retest", "awarded": 1, "maximum": 2, "evidence": ["docs/expertise/practicals.md"]}
+      ]
+    },
+    {
+      "id": "runtime-extensibility",
+      "awarded": 10,
+      "maximum": 10,
+      "status": "PASS",
+      "automaticBlock": false,
+      "items": [
+        {"id": "exact-runtime-selection", "awarded": 3, "maximum": 3, "evidence": ["tests/fixtures/runtime/runtime-evidence.txt"]},
+        {"id": "skse-source-trace", "awarded": 3, "maximum": 3, "evidence": ["tests/fixtures/runtime/skse-source-trace.txt"]},
+        {"id": "abi-address-risks", "awarded": 2, "maximum": 2, "evidence": ["docs/expertise/architecture-traces.md"]},
+        {"id": "isolation-rollback", "awarded": 2, "maximum": 2, "evidence": ["tests/fixtures/runtime/Test-IsolatedRuntimeCompatibility.ps1"]}
+      ]
+    },
+    {
+      "id": "diagnostics",
+      "awarded": 7,
+      "maximum": 10,
+      "status": "BLOCKED",
+      "automaticBlock": true,
+      "items": [
+        {"id": "symbolized-crash", "awarded": 3, "maximum": 3, "evidence": ["tests/fixtures/diagnostics/cdb-reverse-evidence.txt"]},
+        {"id": "missing-master-parity", "awarded": 2, "maximum": 2, "evidence": ["tests/fixtures/diagnostics/raw-cases.json"]},
+        {"id": "production-desync-edge", "awarded": 0, "maximum": 3, "evidence": ["tests/fixtures/together/Test-DesyncEdge.ps1", "tests/fixtures/together/desync-boundary.md", "tests/fixtures/together/production-inventory-route-test.patch", "tests/fixtures/together/production-inventory-route-evidence.txt"]},
+        {"id": "scoped-fix-matrix-privacy", "awarded": 2, "maximum": 2, "evidence": ["tests/fixtures/together/anniversary-test-matrix.json"]}
+      ]
+    },
+    {
+      "id": "packaging",
+      "awarded": 8,
+      "maximum": 10,
+      "status": "PASS",
+      "automaticBlock": false,
+      "items": [
+        {"id": "hashes-provenance", "awarded": 2, "maximum": 3, "evidence": ["tests/fixtures/intake/accepted-packages.json"]},
+        {"id": "rights-gpl", "awarded": 3, "maximum": 3, "evidence": ["LICENSE", "tests/fixtures/evidence/release-state.json"]},
+        {"id": "versions-determinism-destination", "awarded": 1, "maximum": 2, "evidence": ["tests/fixtures/package/Test-EvidenceManifest.ps1"]},
+        {"id": "rollback-quarantine", "awarded": 2, "maximum": 2, "evidence": ["tests/fixtures/package/Test-EvidenceManifest.ps1"]}
+      ]
+    },
+    {
+      "id": "together-architecture",
+      "awarded": 19,
+      "maximum": 20,
+      "status": "PASS",
+      "automaticBlock": false,
+      "items": [
+        {"id": "mod-mapping", "awarded": 4, "maximum": 4, "evidence": ["docs/expertise/architecture-traces.md"]},
+        {"id": "actor-ownership", "awarded": 4, "maximum": 4, "evidence": ["docs/expertise/architecture-traces.md"]},
+        {"id": "inventory-quest-flow", "awarded": 4, "maximum": 4, "evidence": ["docs/expertise/architecture-traces.md"]},
+        {"id": "reproducible-build-tests", "awarded": 5, "maximum": 5, "evidence": ["tests/fixtures/together/build-evidence.txt", "tests/fixtures/together/tiltedreverse-xmake-fix.patch"]},
+        {"id": "upstream-three-client-plan", "awarded": 2, "maximum": 3, "evidence": ["tests/fixtures/together/anniversary-test-matrix.json"]}
+      ]
+    }
+  ]
+}

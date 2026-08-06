@@ -1,0 +1,29 @@
+{
+  "status": "BLOCKED",
+  "automaticBlock": true,
+  "preparationReady": true,
+  "patchRoundTripCaptured": false,
+  "tool": {
+    "version": "4.1.5f",
+    "xEditSha256": "659FADDD8DC061A9D2EDDD20DE925821B87E377284CE179F4538FF78BB2420CD",
+    "xDumpSha256": "30C085B8A20DC02BF5ABAE2CB6610870C9BB9EEA50330E0FE5ADE98E3F89EFE6"
+  },
+  "sourceFixture": "SEG_CK_Practical3.esp",
+  "patch": "SEG_MinimalPatch.esp",
+  "override": {
+    "editorId": "SEG_ExpertiseItem",
+    "sourceFull": "SEG Expertise Token",
+    "winnerFull": "SEG Expertise Token - Patched"
+  },
+  "requiredEvidence": [
+    "SEG_PATCH_CREATE_OK",
+    "SEG_PATCH_REOPEN_OK",
+    "xDump-check-exit-0",
+    "xDump-dump-reviewed-override",
+    "unchanged-Skyrim-master-hash",
+    "unchanged-original-fixture-hash",
+    "byte-stable-patch-reopen"
+  ],
+  "command": "powershell -File tests/fixtures/xedit/Invoke-MinimalPatchRoundTrip.ps1 -XEdit64 <xTESEdit64.exe> -XDump64 <xDump64.exe> -DataPath C:\\tmp\\<isolated>\\Data -IniPath C:\\tmp\\<isolated>\\Ini\\Skyrim.ini -PluginListPath C:\\tmp\\<isolated>\\Profile\\plugins.txt -RunRoot C:\\tmp\\<fresh-run>",
+  "limitations": "No patch round-trip capture is committed or claimed; proprietary masters and generated plugins remain outside Git."
+}

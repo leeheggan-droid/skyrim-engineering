@@ -1,0 +1,344 @@
+﻿{
+    "schema":  "skyrim-engineering.release/v2",
+    "algorithm":  "SHA256",
+    "order":  "ordinal path sort",
+    "boundary":  "Original repository text only; no game, mod, plugin, save, dump, executable, PEX, archive, or third-party source.",
+    "license":  {
+                    "spdx":  "GPL-3.0-or-later",
+                    "path":  "LICENSE",
+                    "agreement":  "Every listed original repository file is distributed under the root GPL-3.0-or-later licence."
+                },
+    "excludedControlFiles":  [
+                                 "tests/fixtures/evidence/artifacts.json",
+                                 "tests/fixtures/package/release-manifest.json"
+                             ],
+    "files":  [
+                  {
+                      "path":  "LICENSE",
+                      "bytes":  32791,
+                      "sha256":  "8BC5BE980DB52ED3BC8C67E6C00DEC34512F319945D30BD728D4B1B4561EA375"
+                  },
+                  {
+                      "path":  "docs/expertise/architecture-traces.md",
+                      "bytes":  9338,
+                      "sha256":  "E91C268F8A51DCD9D6513FD2D456AE6C027BF92E49C824359F359B7373E38D2A"
+                  },
+                  {
+                      "path":  "docs/expertise/assessment-results.md",
+                      "bytes":  1627,
+                      "sha256":  "7BCC3D6C47D42DCC11A710DC20A784E560AAF373E3C5E7410D0C7C3F6BC5747F"
+                  },
+                  {
+                      "path":  "docs/expertise/assessment-rubric.md",
+                      "bytes":  6025,
+                      "sha256":  "2068F386ABFD811277344A98B2F0BCA24D9C4C51112AD3CC73C6A3677A282462"
+                  },
+                  {
+                      "path":  "docs/expertise/package-intake.md",
+                      "bytes":  5886,
+                      "sha256":  "7C206B28C4BA122D66E51CC5098A1C532182DA73856BC4A44F6EA17EEBF7C5F1"
+                  },
+                  {
+                      "path":  "docs/expertise/practicals.md",
+                      "bytes":  12620,
+                      "sha256":  "3D73FE12ED105075615CB34F590B9DCB36994BF8C40F48217685CEAACE592174"
+                  },
+                  {
+                      "path":  "docs/expertise/source-register.md",
+                      "bytes":  11535,
+                      "sha256":  "DB4F529A285E7D7F7C305DF7C4B7280E3BDD128A09866FC89EA80E8F148D628B"
+                  },
+                  {
+                      "path":  "docs/expertise/syllabus.md",
+                      "bytes":  7279,
+                      "sha256":  "159F1F18A39D7E0DC63BA34450F37B58EE7CF0AB7E3A94B0DC12E63820670314"
+                  },
+                  {
+                      "path":  "docs/expertise/toolchain-audit.md",
+                      "bytes":  11592,
+                      "sha256":  "25BD204FC9B39CE5745B2909E0FE4B75BA5187CF804E97ADE158EA8ABDCCDE71"
+                  },
+                  {
+                      "path":  "tests/Expertise.Tests.ps1",
+                      "bytes":  9741,
+                      "sha256":  "6D95FBF9FC75F8DC1DD598CD8BFB5E0625FD54D9D58AD8C12BCA8EE7B6524FEF"
+                  },
+                  {
+                      "path":  "tests/fixtures/ck/README.md",
+                      "bytes":  1191,
+                      "sha256":  "D1EA542B091310C3E7BC35C168A77E4776CA2F2641E6F491DBAE75DED725C8BC"
+                  },
+                  {
+                      "path":  "tests/fixtures/ck/Test-CkCapture.ps1",
+                      "bytes":  666,
+                      "sha256":  "869FB6F821AB13F8AFEE1FAE4A317505881E233E09A894BEA7CB6F80E259D809"
+                  },
+                  {
+                      "path":  "tests/fixtures/ck/ck-replay-contract.json",
+                      "bytes":  484,
+                      "sha256":  "71F50B974C18253EB30F3A5D7D3A5F678B44B5A396C04A0F21F3CBA0EDB53629"
+                  },
+                  {
+                      "path":  "tests/fixtures/ck/ck-v3-check.txt",
+                      "bytes":  222,
+                      "sha256":  "7FA6CD2DF8E27116974D0480E725E090C194D0D0577C19B5B752CDD8C5B86488"
+                  },
+                  {
+                      "path":  "tests/fixtures/ck/ck-v3-structural-dump.txt",
+                      "bytes":  511,
+                      "sha256":  "3AE4100167CF9797B5E1E8CE53B3DEB827869FD53747E20796650D7DDB7E345F"
+                  },
+                  {
+                      "path":  "tests/fixtures/data-model/Test-DataModelCases.ps1",
+                      "bytes":  3882,
+                      "sha256":  "0B0917030839AAE382FE48B3F9828987FA93317E9A51F039427A2636D82704E3"
+                  },
+                  {
+                      "path":  "tests/fixtures/data-model/cases.json",
+                      "bytes":  1956,
+                      "sha256":  "929A1ED47F0A82F63F520F3F010E2ADEA78DBCE4BB4316351F72AE5FCF708BAA"
+                  },
+                  {
+                      "path":  "tests/fixtures/diagnostics/cdb-reverse-evidence.txt",
+                      "bytes":  2369,
+                      "sha256":  "F1B648FD8CAFC12117627A447D68A12E6E11FB8AFBD7BCE14C21F04D7471E010"
+                  },
+                  {
+                      "path":  "tests/fixtures/diagnostics/raw-cases.json",
+                      "bytes":  521,
+                      "sha256":  "8F0507D65540CF4143947E2B6BE0799B064230B7C1EC85A77C07DAA4D82E3CA9"
+                  },
+                  {
+                      "path":  "tests/fixtures/evidence/assessment.json",
+                      "bytes":  6212,
+                      "sha256":  "F305D15B56D31F89599FF04D5DE6CFE7CCDE0143B9EFAE7ED647514EBCE25761"
+                  },
+                  {
+                      "path":  "tests/fixtures/evidence/gate-requirements.json",
+                      "bytes":  1704,
+                      "sha256":  "DA32742DFA3CA7466199880DC16F869ADB8D68C0A168BC28DF8DE62DC0FB2D92"
+                  },
+                  {
+                      "path":  "tests/fixtures/evidence/release-state.json",
+                      "bytes":  187,
+                      "sha256":  "04B3AD2B60FE3FCCC00DC72AE05994EE8DDECA5E7F7931725B459A5FDBC62570"
+                  },
+                  {
+                      "path":  "tests/fixtures/evidence/review-state.json",
+                      "bytes":  759,
+                      "sha256":  "33206810F15DF5828688FFA84A547B2BD5676534DFF2A4A95D02F3301E92A34D"
+                  },
+                  {
+                      "path":  "tests/fixtures/intake/accepted-packages.json",
+                      "bytes":  3698,
+                      "sha256":  "0BB0F54F21FC278D297E5ED2C08BF3E568B7C65404D010F46A515C371DDD505D"
+                  },
+                  {
+                      "path":  "tests/fixtures/package/Test-EvidenceManifest.ps1",
+                      "bytes":  2900,
+                      "sha256":  "7593E8D7BCCA40E3E137DBCB9EC3D89BD066CA8BAF780B5FB6AE05BCBE6123D3"
+                  },
+                  {
+                      "path":  "tests/fixtures/papyrus/Prepare-RuntimeMigration.ps1",
+                      "bytes":  4050,
+                      "sha256":  "A69B69B3CF2C991A2030ABFA090E23DC8575D264967EA8EF4E5254A7A595E2B8"
+                  },
+                  {
+                      "path":  "tests/fixtures/papyrus/SEG_InvalidEvent.psc",
+                      "bytes":  100,
+                      "sha256":  "DFA03001D9F9E0CD137CF590213D4BCDDE9569260180B15BA94FC53992D744D8"
+                  },
+                  {
+                      "path":  "tests/fixtures/papyrus/SEG_ValidEvent.psc",
+                      "bytes":  112,
+                      "sha256":  "09BA9A4F655DACF3D2EA55B109092BF9F83D5A27B986FC74F00D91DD828A6C0F"
+                  },
+                  {
+                      "path":  "tests/fixtures/papyrus/Test-RuntimeCapture.ps1",
+                      "bytes":  5129,
+                      "sha256":  "C5ABC572CA3AF3D3E849733BC3F5C18C7BE6CBE9E2620E1682651B687E53F38A"
+                  },
+                  {
+                      "path":  "tests/fixtures/papyrus/compiler-evidence.txt",
+                      "bytes":  1486,
+                      "sha256":  "11B2E706060DBF968419A5B5102AD03FB85AB46684841BEE01EBFAA510E026F6"
+                  },
+                  {
+                      "path":  "tests/fixtures/papyrus/papyrus-runtime-contract.json",
+                      "bytes":  1118,
+                      "sha256":  "96A961ED98E4897F04C2671BD46C70E0B11EA7E6E4C1E18F7BCDD23E6D9A1BF2"
+                  },
+                  {
+                      "path":  "tests/fixtures/papyrus/runtime-v1/SEG_RuntimeMigration.psc",
+                      "bytes":  380,
+                      "sha256":  "A5729C47AA90C7424C081235E4D3A5899F48F0BFFAD9629A6E6F1D2F38CD6A0C"
+                  },
+                  {
+                      "path":  "tests/fixtures/papyrus/runtime-v2/SEG_RuntimeMigration.psc",
+                      "bytes":  325,
+                      "sha256":  "D201C19CD44B03B3BA33DC6C79722DB71685695E6AB99E68C56BFDCE807571D5"
+                  },
+                  {
+                      "path":  "tests/fixtures/preparation/Test-PreparationContracts.ps1",
+                      "bytes":  10633,
+                      "sha256":  "7D77CF02D0536C797E3EDD583B209EAED5539E8B314DEDBB6B4BE391F9B1EE8A"
+                  },
+                  {
+                      "path":  "tests/fixtures/runtime/Test-IsolatedRuntimeCompatibility.ps1",
+                      "bytes":  2779,
+                      "sha256":  "5910DB7A86861C9DCBDD21507D54E0A915C90C9D3C8D01A02DCFD87484808345"
+                  },
+                  {
+                      "path":  "tests/fixtures/runtime/Test-RuntimeSelectorContract.ps1",
+                      "bytes":  2520,
+                      "sha256":  "F3AC96DADFBE8E3DB78DB84CBCEA3C600D632B848C1062E5543B499D3C389A4C"
+                  },
+                  {
+                      "path":  "tests/fixtures/runtime/runtime-evidence.txt",
+                      "bytes":  1276,
+                      "sha256":  "E0945B0BCABB6E524F72F14F03BDA742C15E0D816B7FD27D5686622DE6E023F9"
+                  },
+                  {
+                      "path":  "tests/fixtures/runtime/skse-source-trace.txt",
+                      "bytes":  1324,
+                      "sha256":  "1B46EA99A51B86D5393526A53E99B812E67C95756882B2396AF75C63A32F32B3"
+                  },
+                  {
+                      "path":  "tests/fixtures/together/Test-DesyncEdge.ps1",
+                      "bytes":  5071,
+                      "sha256":  "0942455AD292FB2288CAC24EABFA4C0F33FA9D767F1B0D06C2C461AC88121192"
+                  },
+                  {
+                      "path":  "tests/fixtures/together/anniversary-test-matrix.json",
+                      "bytes":  1639,
+                      "sha256":  "BEF78581EA3B10EC12A8DDE2397384071A7B3367009BF933F26D3789BE0EAE68"
+                  },
+                  {
+                      "path":  "tests/fixtures/together/build-evidence.txt",
+                      "bytes":  1647,
+                      "sha256":  "308C8DBE21C587893D33AC433728BDE77F1601289DFDF3C9688215B16D158B21"
+                  },
+                  {
+                      "path":  "tests/fixtures/together/desync-boundary.md",
+                      "bytes":  1933,
+                      "sha256":  "0F28E361785351AA883AB13F6BA3B78626E8E907A86FB21C0CB93CF0B6490F03"
+                  },
+                  {
+                      "path":  "tests/fixtures/together/production-inventory-route-evidence.txt",
+                      "bytes":  983,
+                      "sha256":  "F5FD0D3D8243CFEA7B8A3AD940577BD0D7A58EAF19A0A84E4142EA5BCFD3561B"
+                  },
+                  {
+                      "path":  "tests/fixtures/together/production-inventory-route-test.patch",
+                      "bytes":  2279,
+                      "sha256":  "92087125E540E4B53011612371B30CAE5800D62040D3089DFEC497A09C4C02DF"
+                  },
+                  {
+                      "path":  "tests/fixtures/together/tiltedreverse-xmake-fix.patch",
+                      "bytes":  2313,
+                      "sha256":  "6B8527DF4FD48D0D22A39EEBE1283C23E88BBE58B880C285C5C7EC03DC520E32"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/CreateCkFixtureV2.pas",
+                      "bytes":  4236,
+                      "sha256":  "C536EE9DD78858B4265B18FDA3186BA243364B85A8D2FB151D8AC51E6190BBF4"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/CreateMinimalPatch.pas",
+                      "bytes":  2867,
+                      "sha256":  "77114F47F5A117E2701DDC390F777BF1C40273E020D20F689E5849A9E84EBAE0"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/CreateOriginalFixture.pas",
+                      "bytes":  4504,
+                      "sha256":  "7C3D7480A3B2831612553ABCBB1DE95A28BEB16F36D9A120BC2F1C6CDCFAA12E"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/InspectOriginalFixture.pas",
+                      "bytes":  1078,
+                      "sha256":  "188ACE630472A375E163E15E910A985861D0C045917E06BB0BCFB9D5012606FB"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/InspectReadOnly.pas",
+                      "bytes":  4134,
+                      "sha256":  "EE21AE3332DCD0B6484F3DC089A58A542D8DED4C058260B43F26D4C5E9FEF341"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/Invoke-MinimalPatchRoundTrip.ps1",
+                      "bytes":  10775,
+                      "sha256":  "350C09012CC2E0FB17B4B065AEED7F15DFB50349CA04DD0D6A162365039103B4"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/ProbeScript.pas",
+                      "bytes":  399,
+                      "sha256":  "7A5DEDD8E350EBF1A97670B722C53755A56B65EE60DC1ABC2866DA6CE704202F"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/VerifyMinimalPatch.pas",
+                      "bytes":  2488,
+                      "sha256":  "88FD89A4DEF0BEB06E2F5A23B9A06CA072A1D6F9B3118E4D5CD20D2335C2479C"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/first-pass-inspection.txt",
+                      "bytes":  565,
+                      "sha256":  "7EDC3FC6BA61B4A2ED631DA6AE788B2BEF3F5F78DA13000FE387F162BB5CEDA5"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/fresh-replay.json",
+                      "bytes":  2234,
+                      "sha256":  "FD3F9AD4BB3F7ADC9003CFD8641CA1F008C0B67EC2F2D9C2B8FB30823132AD63"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/plugins-original.sseviewsettings",
+                      "bytes":  177,
+                      "sha256":  "C3CEAF30FEE37C120F4F4C5D50CB1407A5585E7325A774D6757C1B2004950967"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/plugins-original.txt",
+                      "bytes":  47,
+                      "sha256":  "B293750C6D7F2B8413F151156C0EA0C50EDC9CCCBA9B6444DE5581EBD1660872"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/plugins.sseviewsettings",
+                      "bytes":  177,
+                      "sha256":  "C3CEAF30FEE37C120F4F4C5D50CB1407A5585E7325A774D6757C1B2004950967"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/plugins.txt",
+                      "bytes":  24,
+                      "sha256":  "2492BD516D939D6D01479449BDF23CA68006A61FEA575BF578F7BF7B5F643A71"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/second-pass-inspection.txt",
+                      "bytes":  565,
+                      "sha256":  "95822305ECDC1828F1D06CFDD2316D1B231165438CDFBA3E928F78DD7949608E"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/xedit-minimal-patch-contract.json",
+                      "bytes":  1250,
+                      "sha256":  "A0B0525BDBDC6EF80149D94D0C32454FBCA5634C3CE92CBB57CE43D84A1E530C"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/xedit-probe.txt",
+                      "bytes":  28,
+                      "sha256":  "D21CC8710EFEBE0DEDE6BE14153816155CC41C68D576078FCA244E9B07B0843F"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/xedit-read-only-evidence.txt",
+                      "bytes":  1289,
+                      "sha256":  "33A656C0AF8B9CD1F2738659F456103E093B27816E8F3D017AEEEB4BC1155CF2"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/xedit-read-only-inspection.txt",
+                      "bytes":  896,
+                      "sha256":  "92B67817232B1E72DC0C293AB99BCD044A663A0234BC641D15BDE5D277D96EF2"
+                  },
+                  {
+                      "path":  "tests/fixtures/xedit/xedit-replay-contract.json",
+                      "bytes":  897,
+                      "sha256":  "B8C33D2883D4120B256F7C2CC33735AF698917C17CC7A0CCFC3FEA9FC9C256D2"
+                  }
+              ],
+    "verification":  "Test-EvidenceManifest.ps1 verifies exact membership and bytes, stages, rehashes, quarantines mismatch, and performs scoped rollback.",
+    "status":  "PASS"
+}

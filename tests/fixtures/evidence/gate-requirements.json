@@ -1,0 +1,17 @@
+{
+  "schema":"skyrim-engineering.task0-gate/v2",
+  "requiredTools":{"xedit":"4.1.5f","creationKit":"1.6.1378.1","skyrim":"1.6.1170.0","skse":"2.2.6"},
+  "primarySources":[
+    {"id":"P4","domain":"papyrus","publisher":"Bethesda Game Studios","kind":"installed-official-compiler","version":"Creation Kit 1.6.1378.1","sha256":"F441AFA877CE0B315C6B613DB7FE700A7BBC66B71A72FC4D0D8BC94577CEB0CE"},
+    {"id":"P5","domain":"papyrus","publisher":"Bethesda Game Studios","kind":"installed-official-source","version":"Skyrim 1.6.1170 source archive","artifact":"ObjectReference.psc","sha256":"3FAB922D3EB31AA6B6508A7216616854CD01DA0AD43949AFAD5A3ADFF809D1E0"},
+    {"id":"P6","domain":"papyrus","publisher":"Bethesda Game Studios","kind":"installed-official-source","version":"Skyrim 1.6.1170 source archive","artifact":"Quest.psc","sha256":"FCBB339898705F6341B2C0BCD6DC652F4B2C86DD17FDFE53F9F36E1E3551A43D"}
+  ],
+  "sourceMinimums":{"papyrus":2},
+  "practicals":[
+    {"id":"xedit-read-only","status":"PASS","automaticBlock":false,"fresh":true,"contract":"tests/fixtures/xedit/xedit-replay-contract.json"},
+    {"id":"xedit-minimal-patch","status":"BLOCKED","automaticBlock":true,"fresh":false,"contract":"tests/fixtures/xedit/xedit-minimal-patch-contract.json"},
+    {"id":"creation-kit","status":"BLOCKED","automaticBlock":true,"fresh":false,"originalOnly":false,"contract":"tests/fixtures/ck/ck-replay-contract.json"},
+    {"id":"papyrus-runtime","status":"BLOCKED","automaticBlock":true,"fresh":false,"contract":"tests/fixtures/papyrus/papyrus-runtime-contract.json"},
+    {"id":"packaging","status":"PASS","automaticBlock":false,"fresh":true,"contract":"tests/fixtures/package/release-manifest.json"}
+  ]
+}
