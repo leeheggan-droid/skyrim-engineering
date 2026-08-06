@@ -140,7 +140,7 @@ git commit -m "docs: establish Skyrim engineering expertise baseline"
 
 **Files:**
 - Create: `.gitattributes`
-- Create: `.gitignore`
+- Modify: `.gitignore`
 - Create: `LICENSE`
 - Create: `skill/skyrim-engineering/SKILL.md`
 - Create: `skill/skyrim-engineering/agents/openai.yaml`
