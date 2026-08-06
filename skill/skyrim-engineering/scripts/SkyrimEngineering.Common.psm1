@@ -131,8 +131,9 @@ function Protect-DiagnosticText {
     )
 
     $protected = $Text
-    $protected = [regex]::Replace($protected, '(?i)[A-Z]:\\Users\\[^\\/\s]+', '[REDACTED:username]')
+    $protected = [regex]::Replace($protected, '(?i)[A-Z]:[\\/]+Users[\\/]+[^\\/\s]+', '[REDACTED:username]')
     $protected = [regex]::Replace($protected, '(?i)/Users/[^/\s]+', '[REDACTED:username]')
+    $protected = [regex]::Replace($protected, '(?im)\b(username|user)\b(\s*[:=]\s*)(?:"[^"]*"|''[^'']*''|[^\s;]+)', '$1$2[REDACTED:username]')
     $protected = [regex]::Replace($protected, '(?<!\d)7656119\d{10}(?!\d)', '[REDACTED:steam-id]')
     $protected = [regex]::Replace($protected, '(?<![\d.])(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}(?![\d.])', '[REDACTED:ipv4]')
     $protected = [regex]::Replace($protected, '(?im)\bauthorization\b(\s*[:=]\s*)(?:"[^"]*"|''[^'']*''|[^\r\n;]+)', 'Authorization$1[REDACTED:token]')

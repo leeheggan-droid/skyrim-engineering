@@ -22,6 +22,9 @@ Describe 'Anniversary Together compatibility project contracts' {
         $caseText | Should -Match '(?m)^privateClientSlots:$'
         $privateNamePattern = '(?i)\b(' + ('l' + 'ee') + '|' + ('ja' + 'cks') + '|' + ('heg' + 'gan') + ')\b'
         $caseText | Should -Not -Match $privateNamePattern
+        $evidenceNames = @([regex]::Matches($caseText, '(?m)^    evidence: \[diagnostic-manifest\.json, (?<name>[^\]]+)\]$') | ForEach-Object { $_.Groups['name'].Value })
+        $evidenceNames.Count | Should -Be $expected.Count
+        $evidenceNames | ForEach-Object { ($_ -cmatch '^[a-z0-9-]+\.(log|json)$') | Should -BeTrue }
     }
 
     It 'permits only public anonymous client identifiers and supported result statuses' {

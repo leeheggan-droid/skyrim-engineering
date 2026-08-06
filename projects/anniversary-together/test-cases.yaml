@@ -9,7 +9,7 @@ cases:
     preconditions: [clean stock profile, no paid upgrade]
     steps: [launch Steam Skyrim Special Edition to main menu]
     expected: [main menu loads without crash]
-    evidence: [diagnostic-manifest.json, Skyrim.log]
+    evidence: [diagnostic-manifest.json, skyrim.log]
     cleanup: [exit to desktop, retain clean-stock-launch checkpoint]
   - id: CONTROL-002
     checkpoint: clean-local-connect

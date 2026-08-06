@@ -49,6 +49,39 @@ function Test-PathInside {
     return $Candidate.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)
 }
 
+function Test-ReparsePoint {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.IO.FileSystemInfo]$Item
+    )
+
+    return (($Item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)
+}
+
+function Assert-NoOutputReparsePoint {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$OutputPath
+    )
+
+    $candidate = $OutputPath
+    while (-not [string]::IsNullOrWhiteSpace($candidate)) {
+        if (Test-Path -LiteralPath $candidate) {
+            $item = Get-Item -LiteralPath $candidate -Force
+            if (Test-ReparsePoint -Item $item) {
+                throw 'OutputDirectory must not be or be beneath a reparse point.'
+            }
+        }
+        $parent = Split-Path -Path $candidate -Parent
+        if ([string]::IsNullOrWhiteSpace($parent) -or $parent -eq $candidate) {
+            break
+        }
+        $candidate = $parent
+    }
+}
+
 function Get-SanitizedRelativePath {
     [CmdletBinding()]
     param(
@@ -68,6 +101,10 @@ foreach ($requestedPath in $InputPath) {
     }
 
     $fullPath = Get-AbsolutePath -Path $requestedPath
+    $requestedItem = Get-Item -LiteralPath $fullPath -Force
+    if (Test-ReparsePoint -Item $requestedItem) {
+        throw "Input path must not be a reparse point: $requestedPath"
+    }
     if (Test-Path -LiteralPath $fullPath -PathType Container) {
         $sourceRoot = $fullPath
         $candidateFiles = @(Get-ChildItem -LiteralPath $fullPath -Recurse -File -Force | Sort-Object -Property @{ Expression = { $_.FullName.ToLowerInvariant() } }, FullName)
@@ -78,12 +115,18 @@ foreach ($requestedPath in $InputPath) {
     }
 
     foreach ($file in $candidateFiles) {
+        if (Test-ReparsePoint -Item $file) {
+            throw "Input file must not be a reparse point: $($file.Name)"
+        }
         $extension = [System.IO.Path]::GetExtension($file.Name).ToLowerInvariant()
         if ($allowedExtensions -notcontains $extension) {
             throw "Input file type is not permitted: $($file.Name)"
         }
         if ([Int64]$file.Length -gt $maximumBytes) {
             throw "Input file exceeds the 25 MiB limit: $($file.Name)"
+        }
+        if ($file.Name -ieq 'diagnostic-manifest.json') {
+            throw 'Input file name diagnostic-manifest.json is reserved for the generated manifest.'
         }
 
         $relativePath = if ($sourceRoot -eq $file.FullName) { $file.Name } else { Get-RelativeSafePath -Root $sourceRoot -Path $file.FullName }
@@ -102,10 +145,12 @@ if ($inputRecords.Count -eq 0) {
 
 $outputFull = Get-AbsolutePath -Path $OutputDirectory
 foreach ($record in $inputRecords) {
-    if ((Test-Path -LiteralPath $record.sourceRoot -PathType Container) -and (Test-PathInside -Candidate $outputFull -Root $record.sourceRoot)) {
-        throw 'OutputDirectory must not be inside an input source directory.'
+    if ((Test-PathInside -Candidate $outputFull -Root $record.sourceRoot) -or (Test-PathInside -Candidate $record.sourceRoot -Root $outputFull)) {
+        throw 'OutputDirectory overlaps an input source; an output inside an input source is not permitted.'
     }
 }
+
+Assert-NoOutputReparsePoint -OutputPath $outputFull
 
 $duplicateRelativePaths = @($inputRecords | Group-Object -Property relativePath | Where-Object { $_.Count -gt 1 })
 if ($duplicateRelativePaths.Count -gt 0) {
@@ -113,6 +158,10 @@ if ($duplicateRelativePaths.Count -gt 0) {
 }
 
 if (Test-Path -LiteralPath $outputFull) {
+    $outputItem = Get-Item -LiteralPath $outputFull -Force
+    if ($outputItem -isnot [System.IO.DirectoryInfo]) {
+        throw 'OutputDirectory must be a directory when it already exists.'
+    }
     $existingItems = @(Get-ChildItem -LiteralPath $outputFull -Force)
     if ($existingItems.Count -gt 0 -and -not $Force) {
         throw 'OutputDirectory already exists and contains files. Pass -Force to replace the bundle.'
