@@ -11,7 +11,7 @@
       "captureSchema": "skyrim-engineering.qualification.creation-kit/v1",
       "observation": "The retained V3 check is historical diagnostic evidence and includes a Bethesda-derived package record.",
       "hypothesis": "A fresh original-only quest round trip can satisfy the required record and provenance checks.",
-      "reproductionCommand": "pwsh -File tests/fixtures/ck/Test-CkCapture.ps1 -Plugin <isolated-original-plugin> -XDump64 <xDump64.exe>",
+      "reproductionCommand": "Prepare with Prepare-CkQualification.ps1, complete the human CK runbook, then run Test-CkCapture.ps1 -Submission <private-submission.json> -CaptureOutput <sanitized-capture.json>.",
       "cleanupCommand": "Delete only the named disposable profile after retaining sanitized metadata and hashes.",
       "blockingDependency": "A human-operated original Creation Kit create, save, reopen, and xDump capture is absent.",
       "humanReviewRequired": true
