@@ -213,7 +213,11 @@ git commit -m "feat: add Skyrim workflow and sourced references"
 - [ ] **Step 4: Verify GREEN and scan output for fixture secrets**.
 - [ ] **Step 5: Commit** with `git commit -m "feat: add sanitized diagnostics and compatibility lab"`.
 
-### Task 6: Safe Local Skill Installation and Codex Laptop Bootstrap
+### Task 6: Safe Local Skill Installation and Read-Only Laptop Assessment
+
+**Human-approved amendment (2026-08-07):** v0.1 supports only AuditOnly, Plan,
+and Verify. Apply and Rollback are reserved but fail closed pending a native
+Windows handle-relative writer and OS-protected journal.
 
 **Files:**
 - Create: `skill/skyrim-engineering/scripts/install-skill.ps1`
@@ -225,12 +229,13 @@ git commit -m "feat: add Skyrim workflow and sourced references"
 **Interfaces:**
 - Consumes `-RepositoryRoot`, optional `-CodexSkillsRoot`, `-WhatIf`; creates only an exact verified junction.
 - `setup-laptop.ps1` consumes exactly one mode from `-AuditOnly|-Plan|-Apply|-Verify|-Rollback`, `-ClientId client-a|client-b|client-c`, explicit `-GameRoot`, `-ProfileRoot`, `-CanonicalManifest`, and `-StateDirectory`.
-- Produces sanitized schemas `skyrim-engineering.laptop-audit/v1`, `skyrim-engineering.laptop-plan/v1`, and `skyrim-engineering.laptop-state/v1` with categories `anniversaryBaseline|approvedShared|machineSpecific|unknownOrIncompatible`.
+- AuditOnly, Plan, and Verify are read-only. Apply and Rollback return nonzero with `skyrim-engineering.laptop-deferred/v1`, including `nativeWindowsHandleRelativeWriter` and `osProtectedJournal` prerequisites, before any root traversal or mutation.
+- Produces sanitized schemas `skyrim-engineering.laptop-audit/v1` and `skyrim-engineering.laptop-plan/v1`; retains verified package-intake evidence without emitting installation actions. Categories remain `anniversaryBaseline|approvedShared|machineSpecific|unknownOrIncompatible`.
 
-- [ ] **Step 1: Write failing tests** for dry-run, junction success/idempotence/refusals, mutually exclusive modes, anonymous client IDs, deterministic audit/plan output, missing/extra/hash/version/order differences, preservation of existing profiles/add-ons, confirmation-required Apply, state-scoped rollback, and secret/personal-path rejection.
+- [ ] **Step 1: Write failing tests** for dry-run, junction success/idempotence/refusals, mutually exclusive modes, anonymous client IDs, deterministic audit/plan/verify output, missing/extra/hash/version/order differences, zero-mutation deferred Apply/Rollback variants, and secret/personal-path rejection.
 - [ ] **Step 2: Verify RED**.
-- [ ] **Step 3: Implement with `SupportsShouldProcess`**, full-path checks, source `SKILL.md` requirement, no recursive deletion, read-only audit/plan/verify defaults, pinned/hash-verified approved free packages, an isolated `Anniversary Together` profile, recorded mutation journal, and rollback limited to that journal. Never install Steam, authenticate accounts, download licensed Bethesda content, copy saves, alter firewall rules, overwrite/delete add-ons, or install unapproved Nexus packages.
-- [ ] **Step 4: Author the Codex terminal guide** with exact audit, plan, separately confirmed apply, verify, and rollback commands; explain canonical baseline versus machine-specific add-ons and require existing Steam Anniversary installation.
+- [ ] **Step 3: Implement full-path checks and read-only AuditOnly/Plan/Verify.** Retain pinned package-intake knowledge for comparison. Fail Apply/Rollback before traversal with the deferred schema. Do not create a profile, journal, staging tree, component file, or deletion path.
+- [ ] **Step 4: Author the Codex terminal guide** with exact audit, plan, and verify commands; explain the deferred boundary, canonical baseline versus machine-specific add-ons, and the separately enabled skill-junction installer. Include no operational component install or rollback instructions.
 - [ ] **Step 5: Verify GREEN**, install into the explicit `-CodexSkillsRoot`, run `-AuditOnly` on the reference laptop, inspect junction target, and confirm output contains no personal paths/account IDs/network data.
 - [ ] **Step 6: Commit** with `git commit -m "feat: install Skyrim skill and bootstrap laptops safely"`.
 

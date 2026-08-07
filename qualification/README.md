@@ -9,6 +9,12 @@ repository, safety, capability, and automated checks do not require a Creation
 Kit GUI run, a Skyrim runtime run, or two laptops. This record gates Task 10
 and the `v1.0 qualified` release only.
 
+The human-approved v0.1 laptop boundary is also intentionally separate from
+this live state: `setup-laptop.ps1` supports read-only AuditOnly, Plan, and
+Verify. Apply and Rollback are deferred pending a native Windows
+handle-relative writer and OS-protected journal. That deferral does not change
+or waive any live qualification track below.
+
 Each live track is one of:
 
 - `verified`: a later validator has rechecked committed, sanitized capture

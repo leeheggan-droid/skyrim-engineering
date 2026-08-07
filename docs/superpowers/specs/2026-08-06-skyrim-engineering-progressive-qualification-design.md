@@ -3,6 +3,10 @@
 Date: 2026-08-06
 Status: Approved for implementation planning
 
+Scope amendment approved by the human owner on 2026-08-07: the `v0.1
+provisional` laptop workflow is read-only. Component mutation remains deferred
+until a native Windows handle-relative writer and OS-protected journal exist.
+
 ## Purpose
 
 Build, install, test, and publish a useful Skyrim Engineering skill before
@@ -89,10 +93,10 @@ No waiver converts missing live evidence into a qualified PASS.
 
 ## Codex-Led Laptop Bootstrap
 
-The provisional skill will include a terminal-led setup workflow that Codex can
-run independently on each family laptop after Steam Skyrim Anniversary is
-installed. The workflow must understand that machines may already contain
-different add-ons and profiles.
+The provisional skill includes a terminal-led assessment workflow that Codex
+can run independently on each family laptop after Steam Skyrim Anniversary is
+installed. The workflow understands that machines may already contain
+different add-ons and profiles, but v0.1 does not mutate them.
 
 Before changing anything it inventories the Skyrim runtime, complete Creation
 set, plugins, archives, SKSE components, Address Library, Skyrim Together, mod
@@ -100,21 +104,24 @@ manager, profiles, load order, and relevant tool versions. It classifies items
 as canonical Anniversary baseline, approved shared multiplayer component,
 machine-specific add-on, or unknown/incompatible item.
 
-The workflow exposes five explicit modes:
+The workflow exposes five explicit mode names with a deliberately narrower
+v0.1 capability boundary:
 
 - `-AuditOnly`: read-only discovery and sanitized inventory;
-- `-Plan`: deterministic proposed actions without mutation;
-- `-Apply`: install only approved free components and create an isolated
-  `Anniversary Together` profile after confirmation;
-- `-Verify`: compare the resulting anonymous client manifest with the canonical
-  baseline; and
-- `-Rollback`: reverse only changes recorded by the workflow.
+- `-Plan`: deterministic read-only assessment with an empty mutation action set;
+- `-Verify`: compare the current anonymous client manifest with the canonical
+  baseline;
+- `-Apply`: fail nonzero with `skyrim-engineering.laptop-deferred/v1`; and
+- `-Rollback`: fail nonzero with the same deferred schema.
 
-Codex may install pinned, hash-verified free tooling and approved free Skyrim
-components such as SKSE, Address Library, and Skyrim Together after a separate
-confirmation. It must not install Steam, authenticate accounts, purchase or
-download licensed Bethesda content, copy saves, change firewall rules, delete
-or overwrite existing add-ons, or install unapproved Nexus packages.
+The deferred response names the missing controls:
+`nativeWindowsHandleRelativeWriter` and `osProtectedJournal`, and directs the
+operator to `AuditOnly`, `Plan`, or `Verify`. The package catalog retains
+verified intake hashes, layouts, versions, and provenance for comparison; it
+does not authorize component installation in v0.1. Codex must not use this
+workflow to install tooling or Skyrim components, create a multiplayer profile,
+or remove prior workflow state. The separate exact-junction skill installer
+remains enabled because it does not mutate a game or profile.
 
 Machine-specific add-ons remain preserved in their existing profiles and are
 excluded from the multiplayer profile until compatibility is explicitly
@@ -153,9 +160,9 @@ legally redistributable patches may enter the public repository.
    inspection, Creation inventory, and cross-machine comparison.
 6. **Diagnostics and project schemas** — sanitized collection plus Anniversary
    Together control/result definitions.
-7. **Local installation and laptop bootstrap** — safe junction installer,
-   Codex-led audit/plan/apply/verify/rollback workflow, add-on-preserving profile
-   isolation, and verified discovery.
+7. **Local installation and laptop assessment** — safe skill junction installer;
+   Codex-led audit/plan/verify; explicit fail-closed Apply/Rollback deferral; and
+   verified, privacy-safe discovery.
 8. **CI and public safety** — complete automated validation.
 9. **Provisional forward tests and publication** — five clean-context tests,
    public repository, green CI, and `v0.1 provisional` handoff.

@@ -1,24 +1,29 @@
-# Codex laptop setup
+# Codex laptop assessment
 
-Use this workflow independently on each Windows 11 family laptop only after its owner has installed Steam Skyrim Special Edition/Anniversary Edition and the complete licensed Anniversary content. The workflow does not install Steam, authenticate an account, purchase or download Bethesda content, copy saves, change firewall rules, or fetch Nexus packages.
+For the human-approved `v0.1 provisional` boundary, `setup-laptop.ps1` is read-only. It supports `-AuditOnly`, `-Plan`, and `-Verify`. Component `-Apply` and `-Rollback` are reserved interface names that always fail nonzero with schema `skyrim-engineering.laptop-deferred/v1`. They remain deferred until the workflow has both a native Windows handle-relative writer and an OS-protected journal.
 
-## Safety model
+The separate `install-skill.ps1` junction installer remains enabled. It installs only the repository skill junction; it does not install or change Skyrim components.
 
-Every invocation requires explicit game, profile, canonical-manifest, and state roots. Public output identifies a machine only as `client-a`, `client-b`, or `client-c`; never substitute a person's name, Windows account, Steam ID, hostname, or network address. Keep `StateDirectory` outside both the game and profile roots.
+## Safety and evidence model
 
-The canonical manifest separates the licensed `anniversaryBaseline` from `approvedShared` entries. Package policy does not come from that caller-supplied manifest: each shared entry must exactly match the repository-controlled `laptop-package-catalog.json`, including component, version, hash, source, destination, publisher, provenance, licence, and package type. Existing profile content is projected through opaque identifiers; mismatched known paths and unexpected isolated-profile content are `unknownOrIncompatible`.
+Every assessment requires explicit game, profile, canonical-manifest, and state roots. Public output identifies a machine only as `client-a`, `client-b`, or `client-c`; never substitute a person's name, Windows account, Steam ID, hostname, or network address. Audit, Plan, and Verify do not create profiles, state journals, staging directories, or game files.
 
-Apply currently installs only the officially qualified SKSE AE 2.2.6 package for Skyrim 1.6.1170. Address Library and Skyrim Together are explicitly `unsupportedPendingIntake`; they cannot be installed until real user-supplied packages complete independent intake. The user or Codex must place the official `skse64_2_02_06.7z` from `https://skse.silverlock.org/beta/skse64_2_02_06.7z` in an explicit local `PackageCache`. The immutable catalog pins its 751,136-byte SHA-256 and 551-entry layout, the two exact game-root executable/DLL mappings, and a reviewed exact name/size/SHA-256 inventory for all 62 direct `Data/Scripts/*.pex` entries. This implements the archive readme's runtime installation layout: `skse64_loader.exe` and `skse64_1_6_1170.dll` beside `SkyrimSE.exe`, and every required PEX under `GameRoot\Data\Scripts`. The script never downloads, authenticates, executes extracted payloads, changes firewall rules, or handles saves or Bethesda content.
+The canonical manifest separates licensed `anniversaryBaseline` content from `approvedShared` evidence. The repository-controlled `laptop-package-catalog.json` retains verified intake knowledge for official SKSE AE 2.2.6: archive provenance, SHA-256, size, entry count, two game-root payloads, and all 62 `Data/Scripts/*.pex` records. That catalog is evidence for comparison only in v0.1; it is not installation authorization. Address Library and Skyrim Together remain `unsupportedPendingIntake`.
 
-`Apply` refuses any pre-existing `Anniversary Together` directory rather than merging into it. After confirmation and `ShouldProcess`, every SKSE destination is checked again: a missing destination is eligible for exclusive publication, an exact existing size/hash is reused and marked `preExisting`, and every other existing object refuses the whole transaction before its journal is created. Existing add-ons are never replaced. Pre-mutation existence and physical identity are recorded separately from lifecycle status and bound by a deterministic ownership digest; an edited lifecycle status cannot turn a pre-existing file into a rollback-owned file. Each new file is extracted into a fresh same-volume ownership-marked staging directory, hash-verified, assigned a physical file identity, and durably marked `publishing` before its atomic move. Missing game directories are likewise prepared inside owned staging and their source identity is durable before publication. The profile directory receives the same durable intent before publication. A crash immediately before or after any publication move is therefore recoverable; rollback removes only a transaction-owned journal entry whose expected identity still matches, skips `preExisting` entries, preserves non-empty directories, and removes staging only after its random ownership marker and reparse-free tree are verified.
+Reports distinguish `missing`, `extra`, `hashDifferent`, `versionDifferent`, and `orderDifferent`. Runtime, Creation, plugin, archive, SKSE, Address Library, Skyrim Together, mod-manager, profile, and load-order domains remain separate. Unknown names and untrusted metadata are represented by opaque identifiers.
 
-Before traversing mutation descendants, the script opens and retains physical handles for the explicit game, profile, and state roots. Each anchor must resolve to the root's exact final path and records its volume/file identity. Immediately before each create, move, replace, or delete, the script opens the direct parent with delete access and without delete sharing, then requires the opened handle's final path and volume identity to be contained by the corresponding retained root anchor. A higher-ancestor junction redirection that exists when the parent is opened is therefore refused, and direct-parent rename/replacement is blocked while the mutation runs. The script reopens and compares the parent identity and final path after the operation. This does not eliminate arbitrary same-user or administrator races: publication still uses path-based .NET calls rather than NT handle-relative names, so a higher ancestor changed after the contained parent handle is acquired but during the final path lookup could redirect a mutation outside the intended root before the post-check reports failure. Automated cleanup intentionally refuses any output whose recorded ownership identity cannot be proved; operators must treat such a failure as requiring manual inspection.
+If `-Apply` or `-Rollback` is requested, the error record includes:
 
-Reports distinguish `missing`, `extra`, `hashDifferent`, `versionDifferent`, and `orderDifferent`, with expected and actual evidence for known canonical paths. Unknown discovered names and untrusted metadata are never emitted; public output uses opaque identifiers. Runtime, Creation, plugin, archive, SKSE, Address Library, Skyrim Together, mod-manager, profile, and load-order domains are reported separately. Resolve baseline differences through the owning licensed installer or explicit manual review; do not use this workflow to replace Bethesda files.
+- schema `skyrim-engineering.laptop-deferred/v1`;
+- the requested mode and `deferred` status;
+- supported modes `AuditOnly`, `Plan`, and `Verify`; and
+- the two missing safety capabilities: `nativeWindowsHandleRelativeWriter` and `osProtectedJournal`.
+
+Use an owning installer or a separately reviewed manual procedure for component changes. This workflow provides no operational installation or rollback instructions.
 
 ## Terminal sequence
 
-Open PowerShell, set explicit local paths, and run each mode separately. These example variables are placeholders and must be replaced locally; do not paste their resolved values into issues or commits.
+Open PowerShell and set explicit local paths. Do not publish their resolved values.
 
 ```powershell
 $repo = 'C:\path\to\skyrim-engineering'
@@ -26,12 +31,11 @@ $game = 'C:\explicit\Steam\Skyrim Special Edition'
 $profiles = 'C:\explicit\ModManager\Profiles'
 $canonical = 'C:\explicit\approved-baseline\manifest.json'
 $state = 'C:\explicit\SkyrimEngineeringState'
-$packageCache = 'C:\explicit\SkyrimEngineeringPackageCache'
 $tools = 'C:\explicit\ModManager'
 $setup = Join-Path $repo 'skill\skyrim-engineering\scripts\setup-laptop.ps1'
 ```
 
-First, audit without mutation:
+Audit the current machine without mutation:
 
 ```powershell
 pwsh -NoProfile -File $setup -AuditOnly -ClientId client-a `
@@ -39,7 +43,7 @@ pwsh -NoProfile -File $setup -AuditOnly -ClientId client-a `
   -CanonicalManifest $canonical -StateDirectory $state -ToolRoot $tools
 ```
 
-Then inspect the deterministic proposed actions:
+Produce a deterministic read-only plan. Its `actions` array is empty; differences and verified package-intake evidence remain available for review.
 
 ```powershell
 pwsh -NoProfile -File $setup -Plan -ClientId client-a `
@@ -47,19 +51,7 @@ pwsh -NoProfile -File $setup -Plan -ClientId client-a `
   -CanonicalManifest $canonical -StateDirectory $state
 ```
 
-Apply is a distinct, separately confirmed installation step. Review every plan action, catalog provenance record, archive hash, and payload hash first. `-ConfirmApply` is mandatory, and PowerShell `ShouldProcess` still presents its normal confirmation unless `-Confirm:$false` is deliberately supplied by an already-authorized operator. Previewing with `-WhatIf` never creates a profile, installed file, or state journal.
-
-```powershell
-pwsh -NoProfile -File $setup -Apply -ConfirmApply -WhatIf -ClientId client-a `
-  -GameRoot $game -ProfileRoot $profiles `
-  -CanonicalManifest $canonical -StateDirectory $state -PackageCache $packageCache
-
-pwsh -NoProfile -File $setup -Apply -ConfirmApply -ClientId client-a `
-  -GameRoot $game -ProfileRoot $profiles `
-  -CanonicalManifest $canonical -StateDirectory $state -PackageCache $packageCache
-```
-
-Verify the anonymous client manifest after Apply. The SKSE domain is exact only when all 64 catalogued runtime files are present with their trusted hashes:
+Verify the current observed installation against the canonical evidence:
 
 ```powershell
 pwsh -NoProfile -File $setup -Verify -ClientId client-a `
@@ -67,19 +59,11 @@ pwsh -NoProfile -File $setup -Verify -ClientId client-a `
   -CanonicalManifest $canonical -StateDirectory $state
 ```
 
-Rollback recomputes the exact mutation allowlist from the trusted catalog and the hash-bound canonical manifest. It rejects altered, duplicate, wrong-root, or extra journal entries; accepts recoverable `applying` state; quarantines and rehashes a file before deletion; and leaves unjournaled files and non-empty directories untouched.
-
-```powershell
-pwsh -NoProfile -File $setup -Rollback -ClientId client-a `
-  -GameRoot $game -ProfileRoot $profiles `
-  -CanonicalManifest $canonical -StateDirectory $state
-```
-
-Use `client-b` and `client-c` on the other laptops. A clean synthetic audit verifies the tool contract only; it is not evidence that a live Anniversary or multiplayer practical passed.
+Use `client-b` and `client-c` on the other laptops. A clean audit is tooling evidence only; it is not a live Anniversary or multiplayer qualification result.
 
 ## Install the Codex skill junction
 
-The local installer creates one verified junction and never replaces a directory or a junction pointing elsewhere. Preview and install into an explicit skills root:
+The local installer creates one verified junction and never replaces a directory or a junction pointing elsewhere:
 
 ```powershell
 pwsh -NoProfile -File (Join-Path $repo 'skill\skyrim-engineering\scripts\install-skill.ps1') `

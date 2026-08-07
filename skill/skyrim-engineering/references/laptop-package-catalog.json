@@ -1,7 +1,9 @@
 {
   "schema": "skyrim-engineering.package-catalog/v1",
   "policy": {
-    "operation": "approved7zInstall",
+    "operation": "verifiedPackageIntake",
+    "componentMutation": false,
+    "mutationStatus": "deferredPendingNativeWindowsHandleRelativeWriterAndOsProtectedJournal",
     "allowedArchiveTypes": ["7z"],
     "networkAccess": false,
     "executePayloads": false,

@@ -168,9 +168,11 @@ function Read-PackageCatalog {
         throw 'Trusted package catalog schema is unsupported.'
     }
     $policy = Get-RequiredProperty $catalog 'policy' 'Trusted package catalog'
-    if ($policy.operation -cne 'approved7zInstall' -or @($policy.allowedArchiveTypes).Count -ne 1 -or
-        $policy.allowedArchiveTypes[0] -cne '7z' -or $policy.networkAccess -ne $false -or $policy.executePayloads -ne $false) {
-        throw 'Trusted package catalog policy must permit 7z extraction only, without network access or payload execution.'
+    if ($policy.operation -cne 'verifiedPackageIntake' -or $policy.componentMutation -ne $false -or
+        $policy.mutationStatus -cne 'deferredPendingNativeWindowsHandleRelativeWriterAndOsProtectedJournal' -or
+        @($policy.allowedArchiveTypes).Count -ne 1 -or $policy.allowedArchiveTypes[0] -cne '7z' -or
+        $policy.networkAccess -ne $false -or $policy.executePayloads -ne $false) {
+        throw 'Trusted package catalog policy must describe read-only verified intake with component mutation deferred.'
     }
     $archiveTool = Get-RequiredProperty $policy 'archiveTool' 'Trusted package policy'
     foreach ($name in @('fileName', 'version', 'sha256')) { [void](Get-RequiredProperty $archiveTool $name 'Trusted archive tool') }
@@ -724,15 +726,30 @@ function Get-TrustedPackages {
 
 function New-Plan {
     param($Manifest, $Catalog, $Audit, [string]$Profiles)
-    $actions = New-Object Collections.ArrayList
-    if (-not (Test-Path -LiteralPath (Join-Path $Profiles 'Anniversary Together'))) { [void]$actions.Add([pscustomobject][ordered]@{ type = 'createProfile'; relativePath = 'Anniversary Together' }) }
-    $missingPaths = @($Audit.differences.missing.relativePath)
-    foreach ($package in @(Get-TrustedPackages $Manifest $Catalog)) {
-        foreach ($mapping in @($package.mappings)) {
-            if ($mapping.destinationRelativePath -in $missingPaths) { [void]$actions.Add([pscustomobject][ordered]@{ type = 'installApproved7zEntry'; catalogId = $package.catalogId; component = $package.component; archiveFileName = $package.archiveFileName; archiveSha256 = $package.archiveSha256; relativePath = $mapping.destinationRelativePath; version = $package.version; sha256 = $mapping.sha256 }) }
+    $intake = @(Get-TrustedPackages $Manifest $Catalog | ForEach-Object {
+        [pscustomobject][ordered]@{
+            catalogId = [string]$_.catalogId
+            component = [string]$_.component
+            version = [string]$_.version
+            status = 'verifiedIntakeEvidence'
+            expectedFileCount = @($_.mappings).Count
         }
+    })
+    return [pscustomobject][ordered]@{
+        schema = 'skyrim-engineering.laptop-plan/v1'
+        clientId = $ClientId
+        operation = 'readOnlyAssessment'
+        supportedModes = @('AuditOnly', 'Plan', 'Verify')
+        actions = @()
+        packageIntake = $intake
+        deferred = [pscustomobject][ordered]@{
+            schema = 'skyrim-engineering.laptop-deferred/v1'
+            status = 'deferred'
+            modes = @('Apply', 'Rollback')
+            requiredCapabilities = @('nativeWindowsHandleRelativeWriter', 'osProtectedJournal')
+        }
+        differences = $Audit.differences
     }
-    return [pscustomobject][ordered]@{ schema = 'skyrim-engineering.laptop-plan/v1'; clientId = $ClientId; operation = 'approved7zInstall'; actions = @($actions); differences = $Audit.differences }
 }
 
 function Get-ExpectedMutations {
@@ -1141,6 +1158,18 @@ function Invoke-RollbackTransaction {
 
 $modeCount = @($AuditOnly, $Plan, $Apply, $Verify, $Rollback | Where-Object { $_ }).Count
 if ($modeCount -ne 1) { throw 'Select exactly one mode: -AuditOnly, -Plan, -Apply, -Verify, or -Rollback.' }
+if ($Apply -or $Rollback) {
+    $requestedMode = if ($Apply) { 'Apply' } else { 'Rollback' }
+    $deferred = [pscustomobject][ordered]@{
+        schema = 'skyrim-engineering.laptop-deferred/v1'
+        mode = $requestedMode
+        status = 'deferred'
+        message = 'Component Apply and Rollback are deferred for v0.1 pending a native Windows handle-relative writer and OS-protected journal. Use -AuditOnly, -Plan, or -Verify; make component changes manually outside this workflow.'
+        requiredCapabilities = @('nativeWindowsHandleRelativeWriter', 'osProtectedJournal')
+        supportedModes = @('AuditOnly', 'Plan', 'Verify')
+    }
+    throw ($deferred | ConvertTo-Json -Depth 4 -Compress)
+}
 if ($ConfirmApply -and -not $Apply) { throw '-ConfirmApply is valid only with -Apply.' }
 if (-not [string]::IsNullOrWhiteSpace($InterruptAfter) -and -not $Apply) { throw '-InterruptAfter is valid only with -Apply qualification tests.' }
 if ($InterruptMutationIndex -ge 0 -and ([string]::IsNullOrWhiteSpace($InterruptAfter) -or -not $Apply)) { throw '-InterruptMutationIndex requires an Apply interruption boundary.' }
@@ -1166,17 +1195,6 @@ try {
         Assert-NoReparseAncestor $tools
         Assert-DisjointRoots @($game, $profiles, $states, $tools)
     }
-    if ($Apply) {
-        if ([string]::IsNullOrWhiteSpace($PackageCache)) { throw 'Apply requires an explicit -PackageCache.' }
-        Assert-FullyQualifiedLocalPath $PackageCache
-        $packageCachePath = Get-NormalizedPath $PackageCache
-        if (-not (Test-Path -LiteralPath $packageCachePath -PathType Container)) { throw 'PackageCache must be an existing explicit directory.' }
-        Assert-NoReparseAncestor $packageCachePath
-        Assert-DisjointRoots @($game, $profiles, $states, $packageCachePath)
-        if ([IO.Path]::GetPathRoot($profiles) -cne [IO.Path]::GetPathRoot($states) -or [IO.Path]::GetPathRoot($game) -cne [IO.Path]::GetPathRoot($states)) {
-            throw 'GameRoot, ProfileRoot, and StateDirectory must be on the same volume for recoverable publication and rollback.'
-        }
-    }
     Assert-NoReparseAncestor $manifestPath
     $catalogPath = Get-NormalizedPath (Join-Path $PSScriptRoot '..\references\laptop-package-catalog.json')
     $catalog = Read-PackageCatalog $catalogPath
@@ -1184,9 +1202,7 @@ try {
 
     if ($AuditOnly) { New-Audit $manifest $catalog 'auditOnly' $game $profiles $tools | ConvertTo-Json -Depth 10 -Compress }
     elseif ($Plan) { $audit = New-Audit $manifest $catalog 'plan' $game $profiles $tools; New-Plan $manifest $catalog $audit $profiles | ConvertTo-Json -Depth 10 -Compress }
-    elseif ($Apply) { $result = Invoke-ApplyTransaction $manifest $catalog $manifestPath $game $profiles $states $packageCachePath $ArchiveToolPath; if ($null -ne $result) { $result | ConvertTo-Json -Depth 12 -Compress } }
     elseif ($Verify) { New-Audit $manifest $catalog 'verify' $game $profiles $tools | ConvertTo-Json -Depth 10 -Compress }
-    elseif ($Rollback) { $result = Invoke-RollbackTransaction $manifest $catalog $manifestPath $game $profiles $states; if ($null -ne $result) { $result | ConvertTo-Json -Depth 12 -Compress } }
 }
 finally {
     foreach ($entry in @($script:PhysicalRootAnchors)) { if ($null -ne $entry.lease) { $entry.lease.Dispose() } }
