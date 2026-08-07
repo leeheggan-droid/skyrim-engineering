@@ -46,12 +46,12 @@ path reached through a reparse-point ancestor.
 
 ## Set up the second laptop
 
-Use this exact stop-and-handoff sequence before changing its mod setup:
+Use this end-to-end sequence:
 
 1. Install the Steam edition of Skyrim Special Edition plus the Anniversary
    Upgrade and allow the owned 2021 Anniversary Creations to finish downloading.
 2. Launch Skyrim once through Steam, reach the main menu, then exit normally.
-   This establishes the stock installation and user configuration for audit.
+   This establishes the standard installation and user configuration.
 3. Install Git and Codex from their official distribution channels, open a new
    PowerShell terminal, and clone this repository:
 
@@ -69,21 +69,17 @@ Use this exact stop-and-handoff sequence before changing its mod setup:
      -RepositoryRoot (Get-Location).Path
    ```
 
-5. Stop and report **`laptop ready`**. The first read-only audit will assign
-   this machine the public identifier `client-b` and compare it with the
-   canonical laptop before any multiplayer component is installed.
+5. Continue directly to the Reborn installation below. Use the public machine
+   identifier `client-b` in any generated records.
 
-Until that audit is complete, do not newly install SKSE, Address Library,
-Skyrim Together, MO2, Wabbajack, or copy a profile/save from another machine.
-Do not remove add-ons or tools that were already present; the audit must observe
-and classify existing state without destroying it.
+Do not remove existing Anniversary content or add-ons to manufacture a clean
+baseline. Install the standard multiplayer stack first; inventory and diagnose
+differences afterward if launch or cross-machine parity fails.
 
-## Install Skyrim Together Reborn after audit approval
+## Install the standard Skyrim Together Reborn stack
 
-Do not begin this section until the read-only `client-b` audit has been accepted
-and both laptops have matching runtime, Creation, plugin, and load-order
-manifests. After approval, use the official Skyrim Together Reborn MO2 route on
-each laptop:
+Use the official Skyrim Together Reborn MO2 route on each laptop immediately
+after the one-time stock Skyrim launch:
 
 1. Read the official [Getting Started guide](https://wiki.tiltedphoques.com/tilted-online/guides/getting-started),
    then install and configure a portable MO2 instance using the official
@@ -104,17 +100,16 @@ each laptop:
 4. Add `SkyrimTogether.exe` to MO2 using the official
    [executable-location step](https://wiki.tiltedphoques.com/tilted-online/guides/client-setup/using-modorganizer2-mo2/skyrim-together-reborn/locating-skyrim-together-reborn-through-mo2).
    On its first launch, select the installed `SkyrimSE.exe` when prompted.
-5. Record the installed Reborn version plus archive/file hashes privately and
-   ensure both laptops use the same package. Do **not** connect to a server or
-   start a multiplayer save yet. Stop and report
-   **`reborn installed — client-b`** so the post-install parity verification can
-   run first.
+5. Launch `SkyrimTogether.exe` once through MO2 to confirm that it reaches its
+   menu without an Address Library or executable-selection error, then exit.
+   Report **`reborn installed — client-b`**. Record and compare versions/hashes
+   afterward; investigate only if the laptops differ or the standard launch
+   fails.
 
-The upstream guide recommends a minimal supported setup and does not require
-the paid Anniversary Upgrade. This project intentionally evaluates licensed
-Anniversary content only after the minimal unmodified Reborn control succeeds;
-that content must not be represented as supported until the multi-laptop cases
-produce evidence.
+The upstream guide recommends a minimal setup and does not require the paid
+Anniversary Upgrade. These family laptops intentionally retain their licensed
+Anniversary content. Do not remove it pre-emptively; record an actual failure
+before diagnosing or proposing compatibility changes.
 
 ## Inspect a laptop
 
