@@ -78,6 +78,44 @@ Skyrim Together, MO2, Wabbajack, or copy a profile/save from another machine.
 Do not remove add-ons or tools that were already present; the audit must observe
 and classify existing state without destroying it.
 
+## Install Skyrim Together Reborn after audit approval
+
+Do not begin this section until the read-only `client-b` audit has been accepted
+and both laptops have matching runtime, Creation, plugin, and load-order
+manifests. After approval, use the official Skyrim Together Reborn MO2 route on
+each laptop:
+
+1. Read the official [Getting Started guide](https://wiki.tiltedphoques.com/tilted-online/guides/getting-started),
+   then install and configure a portable MO2 instance using the official
+   [MO2 client guide](https://wiki.tiltedphoques.com/tilted-online/guides/client-setup/using-modorganizer2-mo2/installing-modorganizer2/initial-mo2-setup).
+   Select **Skyrim Special Edition** and create a dedicated profile named
+   `Skyrim Together Reborn`; do not reuse a personal modded profile.
+2. In that profile, download and enable **Address Library for SKSE Plugins — All
+   in one (1.6.X)** by following the official
+   [Address Library step](https://wiki.tiltedphoques.com/tilted-online/guides/client-setup/using-modorganizer2-mo2/utilities/address-library-for-skse).
+   Skyrim Script Extender itself is not required for Skyrim Together Reborn and
+   must not be added to the stock control profile.
+3. Download **Skyrim Together Reborn** from its linked Nexus page using **Mod
+   Manager Download**, following the official
+   [download](https://wiki.tiltedphoques.com/tilted-online/guides/client-setup/using-modorganizer2-mo2/skyrim-together-reborn/downloading-skyrim-together-reborn)
+   and [installation](https://wiki.tiltedphoques.com/tilted-online/guides/client-setup/using-modorganizer2-mo2/skyrim-together-reborn/installing-skyrim-together-reborn)
+   pages. Install and enable it in MO2; do not manually copy its archive into
+   the live Skyrim directory.
+4. Add `SkyrimTogether.exe` to MO2 using the official
+   [executable-location step](https://wiki.tiltedphoques.com/tilted-online/guides/client-setup/using-modorganizer2-mo2/skyrim-together-reborn/locating-skyrim-together-reborn-through-mo2).
+   On its first launch, select the installed `SkyrimSE.exe` when prompted.
+5. Record the installed Reborn version plus archive/file hashes privately and
+   ensure both laptops use the same package. Do **not** connect to a server or
+   start a multiplayer save yet. Stop and report
+   **`reborn installed — client-b`** so the post-install parity verification can
+   run first.
+
+The upstream guide recommends a minimal supported setup and does not require
+the paid Anniversary Upgrade. This project intentionally evaluates licensed
+Anniversary content only after the minimal unmodified Reborn control succeeds;
+that content must not be represented as supported until the multi-laptop cases
+produce evidence.
+
 ## Inspect a laptop
 
 The provisional laptop helper is deliberately read-only. Choose exactly one
