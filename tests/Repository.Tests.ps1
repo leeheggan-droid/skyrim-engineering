@@ -13,5 +13,7 @@ Describe 'Repository foundation' {
         $workflow | Should -Match 'windows-2022'
         $workflow | Should -Match '(?ms)^permissions:\s*\r?\n\s+contents:\s*read\s*$'
         $workflow | Should -Match 'Pester.*5\.9\.0|RequiredVersion\s+5\.9\.0'
+        $workflow | Should -Match 'python\s+\.github/scripts/quick_validate\.py\s+skill/skyrim-engineering'
+        '.github/scripts/quick_validate.py' | Should -Exist
     }
 }

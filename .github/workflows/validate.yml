@@ -30,23 +30,7 @@ jobs:
 
       - name: Run quick validator
         shell: pwsh
-        run: |
-          @'
-          import re
-          from pathlib import Path
-          import yaml
-
-          text = Path('skill/skyrim-engineering/SKILL.md').read_text(encoding='utf-8')
-          match = re.match(r'^---\n(.*?)\n---', text, re.DOTALL)
-          if not match:
-              raise SystemExit('Invalid or missing SKILL.md frontmatter')
-          data = yaml.safe_load(match.group(1))
-          if not isinstance(data, dict) or data.get('name') != 'skyrim-engineering' or not data.get('description'):
-              raise SystemExit('Invalid Skyrim engineering skill metadata')
-          if set(data) - {'name', 'description', 'license', 'allowed-tools', 'metadata'}:
-              raise SystemExit('Unexpected SKILL.md frontmatter field')
-          print('Skill is valid!')
-          '@ | python -
+        run: python .github/scripts/quick_validate.py skill/skyrim-engineering
 
       - name: Parse PowerShell with the parser API
         shell: pwsh

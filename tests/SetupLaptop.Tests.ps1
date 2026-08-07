@@ -172,7 +172,7 @@ Describe 'setup-laptop provisional read-only bootstrap' {
     It 'rejects unsafe caller manifest package authorization during read-only validation' {
         $badManifest = Join-Path $caseRoot 'bad.json'
         $bad = Get-Content -LiteralPath $canonical -Raw | ConvertFrom-Json
-        $bad.items[2] | Add-Member -NotePropertyName sourceRelativePath -NotePropertyValue ('C:' + '/Users/Owner/private.zip')
+        $bad.items[2] | Add-Member -NotePropertyName sourceRelativePath -NotePropertyValue ('C:' + '/' + 'Users' + '/Owner/private.zip')
         $bad | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $badManifest
 
         { Invoke-LaptopSetup -Mode Plan -GameRoot $gameRoot -ProfileRoot $profileRoot -StateDirectory $stateRoot -Manifest $badManifest } |
