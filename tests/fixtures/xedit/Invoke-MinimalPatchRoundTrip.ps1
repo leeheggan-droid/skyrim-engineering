@@ -15,15 +15,33 @@ Set-StrictMode -Version Latest
 
 $expectedXEditHash = '659FADDD8DC061A9D2EDDD20DE925821B87E377284CE179F4538FF78BB2420CD'
 $expectedXDumpHash = '30C085B8A20DC02BF5ABAE2CB6610870C9BB9EEA50330E0FE5ADE98E3F89EFE6'
+$expectedFileVersion = '4.1.5.0'
+
+function Assert-NoReparseAncestor {
+    param([string]$Path, [string]$Role)
+    $cursor = [IO.Path]::GetFullPath($Path)
+    while (-not (Test-Path -LiteralPath $cursor)) { $cursor = Split-Path -Parent $cursor }
+    while ($cursor) {
+        $item = Get-Item -LiteralPath $cursor -Force
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "$Role traverses a reparse point: $cursor" }
+        $parent = Split-Path -Parent $cursor
+        if (-not $parent -or $parent -eq $cursor) { break }
+        $cursor = $parent
+    }
+}
 
 function Resolve-ExistingFile {
     param([string]$Path, [string]$Role)
+    if (-not [IO.Path]::IsPathFullyQualified($Path)) { throw "$Role must be fully qualified" }
+    Assert-NoReparseAncestor $Path $Role
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "$Role does not exist: $Path" }
     (Resolve-Path -LiteralPath $Path).Path
 }
 
 function Resolve-ExistingDirectory {
     param([string]$Path, [string]$Role)
+    if (-not [IO.Path]::IsPathFullyQualified($Path)) { throw "$Role must be fully qualified" }
+    Assert-NoReparseAncestor $Path $Role
     if (-not (Test-Path -LiteralPath $Path -PathType Container)) { throw "$Role does not exist: $Path" }
     (Resolve-Path -LiteralPath $Path).Path.TrimEnd('\')
 }
@@ -31,7 +49,9 @@ function Resolve-ExistingDirectory {
 function Resolve-SafeTempDestination {
     param([string]$Path, [string]$Role)
     $full = [IO.Path]::GetFullPath($Path).TrimEnd('\')
+    if (-not [IO.Path]::IsPathFullyQualified($Path)) { throw "$Role must be fully qualified" }
     if (-not $full.StartsWith('C:\tmp\', [StringComparison]::OrdinalIgnoreCase)) { throw "$Role must be a child of C:\tmp" }
+    Assert-NoReparseAncestor $full $Role
     $full
 }
 
@@ -39,6 +59,21 @@ function Assert-Hash {
     param([string]$Path, [string]$Expected, [string]$Role)
     $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash
     if ($actual -ne $Expected) { throw "$Role SHA-256 mismatch: expected $Expected, got $actual" }
+}
+
+function Assert-ToolVersion {
+    param([string]$Path, [string]$Role)
+    $actual = (Get-Item -LiteralPath $Path).VersionInfo.FileVersion
+    if ($actual -ne $expectedFileVersion) { throw "$Role version mismatch: expected $expectedFileVersion, got $actual" }
+}
+
+function Test-PathOverlap {
+    param([string]$Left, [string]$Right)
+    $leftFull = [IO.Path]::GetFullPath($Left).TrimEnd('\')
+    $rightFull = [IO.Path]::GetFullPath($Right).TrimEnd('\')
+    return $leftFull.Equals($rightFull, [StringComparison]::OrdinalIgnoreCase) -or
+        $leftFull.StartsWith($rightFull + '\', [StringComparison]::OrdinalIgnoreCase) -or
+        $rightFull.StartsWith($leftFull + '\', [StringComparison]::OrdinalIgnoreCase)
 }
 
 function Invoke-HiddenProcess {
@@ -56,6 +91,8 @@ $xedit = Resolve-ExistingFile $XEdit64 'xEdit executable'
 $xdump = Resolve-ExistingFile $XDump64 'xDump executable'
 Assert-Hash $xedit $expectedXEditHash 'xEdit executable'
 Assert-Hash $xdump $expectedXDumpHash 'xDump executable'
+Assert-ToolVersion $xedit 'xEdit executable'
+Assert-ToolVersion $xdump 'xDump executable'
 $data = Resolve-ExistingDirectory $DataPath 'isolated Data root'
 if (-not $data.StartsWith('C:\tmp\', [StringComparison]::OrdinalIgnoreCase)) { throw 'isolated Data root must be a child of C:\tmp' }
 $ini = Resolve-ExistingFile $IniPath 'isolated Skyrim.ini'
@@ -64,6 +101,9 @@ if (-not $ini.StartsWith('C:\tmp\', [StringComparison]::OrdinalIgnoreCase)) { th
 if (-not $plugins.StartsWith('C:\tmp\', [StringComparison]::OrdinalIgnoreCase)) { throw 'isolated plugin list must be a child of C:\tmp' }
 $run = Resolve-SafeTempDestination $RunRoot 'run root'
 if (Test-Path -LiteralPath $run) { throw "run root already exists: $run" }
+foreach ($protectedRoot in @($data, (Split-Path -Parent $ini), (Split-Path -Parent $plugins))) {
+    if (Test-PathOverlap $run $protectedRoot) { throw 'run root must not overlap a protected input root' }
+}
 
 $skyrim = Resolve-ExistingFile (Join-Path $data 'Skyrim.esm') 'isolated Skyrim.esm'
 $source = Resolve-ExistingFile (Join-Path $data 'SEG_CK_Practical3.esp') 'original fixture plugin'
@@ -107,6 +147,7 @@ $checkArguments = @('-SSE', "-D:$dataArg", '-check', $patch)
 $dumpArguments = @('-SSE', "-D:$dataArg", '-dump', $patch)
 
 $plan = [ordered]@{
+    schema = 'skyrim-engineering.qualification.xedit-preparation/v1'
     contractVersion = 1
     status = 'PREPARED'
     runtimeEvidenceCaptured = $false
@@ -116,6 +157,10 @@ $plan = [ordered]@{
         xDump = [ordered]@{ version = '4.1.5f'; sha256 = $expectedXDumpHash }
     }
     source = [ordered]@{ name = 'SEG_CK_Practical3.esp'; sha256 = $sourceHashBefore }
+    protectedInputs = [ordered]@{
+        'Skyrim.esm' = [ordered]@{ sha256 = $skyrimHashBefore }
+        'SEG_CK_Practical3.esp' = [ordered]@{ sha256 = $sourceHashBefore }
+    }
     target = [ordered]@{ name = 'SEG_MinimalPatch.esp'; editorId = 'SEG_ExpertiseItem'; full = 'SEG Expertise Token - Patched' }
     phases = @(
         [ordered]@{ name = 'create-save'; tool = 'xTESEdit64.exe'; arguments = $createArguments }
@@ -124,7 +169,8 @@ $plan = [ordered]@{
         [ordered]@{ name = 'xdump-dump'; tool = 'xDump64.exe'; arguments = $dumpArguments }
     )
     requiredMarkers = @('SEG_PATCH_CREATE_OK', 'SEG_PATCH_REOPEN_OK')
-    limitations = 'A plan is not execution evidence. CAPTURE_VERIFIED requires both xEdit phases, xDump check/dump, and unchanged input hashes.'
+    review = [ordered]@{ required = $true; reviewerId = $null; status = 'pending' }
+    limitations = 'A plan is not execution evidence. Any automated capture remains UNVERIFIED_SUBMISSION pending a named human review.'
 }
 $planPath = Join-Path $run 'minimal-patch-plan.json'
 $plan | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $planPath -Encoding UTF8
@@ -134,19 +180,24 @@ if ($PrepareOnly) {
 }
 
 try {
+    $captureStartedAtUtc = [DateTime]::UtcNow
     if (Test-Path -LiteralPath $patch) { throw 'refusing to overwrite existing SEG_MinimalPatch.esp' }
     Invoke-HiddenProcess $xedit $createArguments 'xEdit create-save phase' $XEditTimeoutSeconds
     if (-not (Test-Path -LiteralPath $patch -PathType Leaf)) { throw 'create-save phase produced no patch' }
     if (-not (Test-Path -LiteralPath $createLog -PathType Leaf) -or (Get-Content -Raw -LiteralPath $createLog) -notmatch 'SEG_PATCH_CREATE_OK') { throw 'create-save log lacks SEG_PATCH_CREATE_OK' }
+    if ((Get-Item -LiteralPath $createLog).LastWriteTimeUtc -lt $captureStartedAtUtc.AddSeconds(-2)) { throw 'create-save log is stale' }
     if ((Get-FileHash -Algorithm SHA256 -LiteralPath $source).Hash -ne $sourceHashBefore) { throw 'create-save phase changed original fixture bytes' }
     if ((Get-FileHash -Algorithm SHA256 -LiteralPath $skyrim).Hash -ne $skyrimHashBefore) { throw 'create-save phase changed Skyrim.esm bytes' }
     $patchHashAfterCreate = (Get-FileHash -Algorithm SHA256 -LiteralPath $patch).Hash
+    $createCompletedAtUtc = [DateTime]::UtcNow
 
     Invoke-HiddenProcess $xedit $reopenArguments 'xEdit reopen-verify phase' $XEditTimeoutSeconds
     if (-not (Test-Path -LiteralPath $reopenLog -PathType Leaf) -or (Get-Content -Raw -LiteralPath $reopenLog) -notmatch 'SEG_PATCH_REOPEN_OK') { throw 'reopen log lacks SEG_PATCH_REOPEN_OK' }
+    if ((Get-Item -LiteralPath $reopenLog).LastWriteTimeUtc -lt $createCompletedAtUtc.AddSeconds(-2)) { throw 'reopen log is stale' }
     if ((Get-FileHash -Algorithm SHA256 -LiteralPath $patch).Hash -ne $patchHashAfterCreate) { throw 'read-only reopen changed patch bytes' }
     if ((Get-FileHash -Algorithm SHA256 -LiteralPath $source).Hash -ne $sourceHashBefore) { throw 'reopen changed original fixture bytes' }
     if ((Get-FileHash -Algorithm SHA256 -LiteralPath $skyrim).Hash -ne $skyrimHashBefore) { throw 'reopen changed Skyrim.esm bytes' }
+    $reopenCompletedAtUtc = [DateTime]::UtcNow
 
     $checkOutput = & $xdump @checkArguments 2>&1
     if ($LASTEXITCODE -ne 0) { throw "xDump check failed: $($checkOutput -join [Environment]::NewLine)" }
@@ -155,10 +206,16 @@ try {
     $dumpText = $dumpOutput -join [Environment]::NewLine
     if ($dumpText -notmatch 'SEG_ExpertiseItem' -or $dumpText -notmatch [regex]::Escape('SEG Expertise Token - Patched')) { throw 'xDump does not show the reviewed original override' }
     if ((Get-FileHash -Algorithm SHA256 -LiteralPath $patch).Hash -ne $patchHashAfterCreate) { throw 'xDump verification changed patch bytes' }
+    if ((Get-FileHash -Algorithm SHA256 -LiteralPath $source).Hash -ne $sourceHashBefore) { throw 'xDump verification changed original fixture bytes' }
+    if ((Get-FileHash -Algorithm SHA256 -LiteralPath $skyrim).Hash -ne $skyrimHashBefore) { throw 'xDump verification changed Skyrim.esm bytes' }
+    $verificationCompletedAtUtc = [DateTime]::UtcNow
 
     $capture = [ordered]@{
+        schema = 'skyrim-engineering.qualification.xedit/v1'
         contractVersion = 1
-        result = 'CAPTURE_VERIFIED'
+        result = 'UNVERIFIED_SUBMISSION'
+        capturedAtUtc = [DateTime]::UtcNow.ToString('o')
+        freshness = [ordered]@{ startedAtUtc = $captureStartedAtUtc.ToString('o'); completedAtUtc = [DateTime]::UtcNow.ToString('o') }
         tools = $plan.tools
         inputs = @(
             [ordered]@{ name = 'Skyrim.esm'; before = $skyrimHashBefore; after = (Get-FileHash -Algorithm SHA256 -LiteralPath $skyrim).Hash; equal = $true }
@@ -166,11 +223,17 @@ try {
         )
         patch = [ordered]@{ name = 'SEG_MinimalPatch.esp'; sha256 = $patchHashAfterCreate; editorId = 'SEG_ExpertiseItem'; winnerFull = 'SEG Expertise Token - Patched' }
         markers = @('SEG_PATCH_CREATE_OK', 'SEG_PATCH_REOPEN_OK')
+        phases = @(
+            [ordered]@{ name = 'create-save'; completedAtUtc = $createCompletedAtUtc.ToString('o'); logSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $createLog).Hash }
+            [ordered]@{ name = 'reopen-verify'; completedAtUtc = $reopenCompletedAtUtc.ToString('o'); logSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $reopenLog).Hash }
+            [ordered]@{ name = 'xdump-check-and-dump'; completedAtUtc = $verificationCompletedAtUtc.ToString('o') }
+        )
         xdump = [ordered]@{ checkExitCode = 0; dumpExitCode = 0 }
+        review = [ordered]@{ required = $true; reviewerId = $null; status = 'pending' }
         limitations = 'This verifies an xEdit-created original fixture override and byte-stable reopen; it is not Creation Kit or game runtime evidence.'
     }
     $capture | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $run 'minimal-patch-capture.json') -Encoding UTF8
-    "RESULT=PASS contract=CAPTURE_VERIFIED patch=$patchHashAfterCreate"
+    "RESULT=PASS contract=UNVERIFIED_SUBMISSION patch=$patchHashAfterCreate"
 }
 catch {
     $capturePath = Join-Path $run 'minimal-patch-capture.json'

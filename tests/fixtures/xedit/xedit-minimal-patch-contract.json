@@ -1,8 +1,11 @@
 {
+  "schema": "skyrim-engineering.qualification.xedit-contract/v1",
   "status": "BLOCKED",
   "automaticBlock": true,
   "preparationReady": true,
   "patchRoundTripCaptured": false,
+  "captureResult": "UNVERIFIED_SUBMISSION",
+  "namedReviewRequired": true,
   "tool": {
     "version": "4.1.5f",
     "xEditSha256": "659FADDD8DC061A9D2EDDD20DE925821B87E377284CE179F4538FF78BB2420CD",
@@ -22,7 +25,9 @@
     "xDump-dump-reviewed-override",
     "unchanged-Skyrim-master-hash",
     "unchanged-original-fixture-hash",
-    "byte-stable-patch-reopen"
+    "byte-stable-patch-reopen",
+    "fresh-phase-timestamps",
+    "named-review-pending"
   ],
   "command": "powershell -File tests/fixtures/xedit/Invoke-MinimalPatchRoundTrip.ps1 -XEdit64 <xTESEdit64.exe> -XDump64 <xDump64.exe> -DataPath C:\\tmp\\<isolated>\\Data -IniPath C:\\tmp\\<isolated>\\Ini\\Skyrim.ini -PluginListPath C:\\tmp\\<isolated>\\Profile\\plugins.txt -RunRoot C:\\tmp\\<fresh-run>",
   "limitations": "No patch round-trip capture is committed or claimed; proprietary masters and generated plugins remain outside Git."

@@ -139,6 +139,7 @@ try {
     Assert-True ($result.ExitCode -eq 0) "xEdit plan preparation failed: $($result.Output)"
     $plan = Get-Content -Raw -LiteralPath (Join-Path $planRoot 'minimal-patch-plan.json') | ConvertFrom-Json
     Assert-True ($plan.status -eq 'PREPARED') 'xEdit plan must not claim executed evidence'
+    Assert-True ($plan.schema -eq 'skyrim-engineering.qualification.xedit-preparation/v1') 'xEdit plan schema is missing or wrong'
     Assert-True ($plan.runtimeEvidenceCaptured -eq $false) 'xEdit preparation claimed execution'
     Assert-True ($plan.xeditTimeoutSeconds -eq 120) 'xEdit execution has no reviewed timeout boundary'
     Assert-True (@($plan.phases).Count -eq 4) 'xEdit plan must contain create, reopen, check, and dump phases'
@@ -148,6 +149,17 @@ try {
     Assert-True ($plan.phases[1].name -eq 'reopen-verify') 'second xEdit phase is not reopen verification'
     Assert-True ($plan.phases[2].name -eq 'xdump-check') 'third phase is not xDump check'
     Assert-True ($plan.phases[3].name -eq 'xdump-dump') 'fourth phase is not xDump dump'
+    Assert-True ($plan.protectedInputs.'Skyrim.esm'.sha256 -eq (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $dataRoot 'Skyrim.esm')).Hash) 'plan does not bind Skyrim.esm bytes'
+    Assert-True ($plan.protectedInputs.'SEG_CK_Practical3.esp'.sha256 -eq (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $dataRoot 'SEG_CK_Practical3.esp')).Hash) 'plan does not bind source plugin bytes'
+    Assert-True ($plan.review.required -eq $true -and $plan.review.reviewerId -eq $null) 'plan does not require a named reviewer'
+    $xeditSource = Get-Content -Raw -LiteralPath $xeditScript
+    Assert-True ($xeditSource -match 'UNVERIFIED_SUBMISSION') 'xEdit capture is not explicitly unverified'
+    Assert-True ($xeditSource -notmatch "result\s*=\s*'CAPTURE_VERIFIED'") 'xEdit script can self-promote a capture'
+    $xeditContract = Get-Content -Raw -LiteralPath (Join-Path $xeditRoot 'xedit-minimal-patch-contract.json') | ConvertFrom-Json
+    Assert-True ($xeditContract.schema -eq 'skyrim-engineering.qualification.xedit-contract/v1') 'xEdit contract schema is missing or wrong'
+    Assert-True ($xeditContract.captureResult -eq 'UNVERIFIED_SUBMISSION') 'xEdit contract permits automated promotion'
+    Assert-True ($xeditContract.namedReviewRequired -eq $true) 'xEdit contract omits named review'
+    Assert-True (@($xeditContract.requiredEvidence) -contains 'fresh-phase-timestamps') 'xEdit contract omits freshness evidence'
 
     $fakeXEdit = Join-Path $testRoot 'xTESEdit64.exe'
     [IO.File]::WriteAllBytes($fakeXEdit, [byte[]](9, 9, 9))
@@ -177,7 +189,26 @@ try {
     Assert-True ($result.ExitCode -ne 0) 'xEdit preparation accepted an INI outside the isolated temp boundary'
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $outsidePlanRoot 'minimal-patch-plan.json'))) 'outside-boundary preparation left a plan'
 
-    'RESULT=PASS preparation-contracts=3 fail-closed-probes=4'
+    $overlapRoot = Join-Path $dataRoot 'run'
+    $result = Invoke-Child $xeditScript @(
+        '-XEdit64', 'C:\Tools\xEdit-4.1.5f\xTESEdit64.exe', '-XDump64', 'C:\Tools\xEdit-4.1.5f\xDump64.exe',
+        '-DataPath', $dataRoot, '-IniPath', $iniPath, '-PluginListPath', $pluginList,
+        '-RunRoot', $overlapRoot, '-PrepareOnly'
+    )
+    Assert-True ($result.ExitCode -ne 0) 'xEdit preparation accepted a run root overlapping protected Data'
+
+    $reparseTarget = Join-Path $testRoot 'reparse-target'
+    $reparseData = Join-Path $testRoot 'reparse-data'
+    [IO.Directory]::CreateDirectory($reparseTarget) | Out-Null
+    New-Item -ItemType Junction -Path $reparseData -Target $reparseTarget | Out-Null
+    $result = Invoke-Child $xeditScript @(
+        '-XEdit64', 'C:\Tools\xEdit-4.1.5f\xTESEdit64.exe', '-XDump64', 'C:\Tools\xEdit-4.1.5f\xDump64.exe',
+        '-DataPath', $reparseData, '-IniPath', $iniPath, '-PluginListPath', $pluginList,
+        '-RunRoot', (Join-Path $testRoot 'reparse-run'), '-PrepareOnly'
+    )
+    Assert-True ($result.ExitCode -ne 0) 'xEdit preparation accepted a reparse-point Data root'
+
+    'RESULT=PASS preparation-contracts=3 fail-closed-probes=6'
 }
 finally {
     if (Test-Path -LiteralPath $testRoot) {
