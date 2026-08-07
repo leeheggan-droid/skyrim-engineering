@@ -3,10 +3,58 @@
   "$id": "https://skyrim-engineering.example/schemas/anniversary-together-manifest-v1.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "privateClientSlots", "results"],
+  "required": ["schema", "privateClientSlots", "canonicalCreationManifest", "participants", "parityReconciliation", "results"],
   "properties": {
     "schema": {"const": "skyrim-engineering.anniversary-together.manifest/v1"},
-    "privateClientSlots": {"type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true, "items": {"enum": ["slot-1", "slot-2", "slot-3"]}},
-    "results": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["testId", "path"], "properties": {"testId": {"type": "string", "pattern": "^(CONTROL|SYNC|AE)-[0-9]{3}$"}, "path": {"type": "string", "pattern": "^results/[A-Z]+-[0-9]{3}\\.json$"}}}}
+    "privateClientSlots": {"type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true, "items": {"enum": ["slot-1", "slot-2", "slot-3"]}},
+    "canonicalCreationManifest": {
+      "type": "object", "additionalProperties": false, "required": ["path", "sha256"],
+      "properties": {"path": {"const": "manifests-private/canonical.json"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+    },
+    "participants": {
+      "type": "array", "minItems": 3, "maxItems": 3,
+      "prefixItems": [
+        {"$ref": "#/$defs/host"}, {"$ref": "#/$defs/clientA"}, {"$ref": "#/$defs/clientB"}
+      ], "items": false
+    },
+    "parityReconciliation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["comparisonReports", "allMatched", "mismatchDisposition"],
+      "properties": {
+        "comparisonReports": {"type": "array", "minItems": 3, "maxItems": 3, "prefixItems": [{"$ref": "#/$defs/comparisonHost"}, {"$ref": "#/$defs/comparisonClientA"}, {"$ref": "#/$defs/comparisonClientB"}], "items": false},
+        "allMatched": {"type": "boolean"},
+        "mismatchDisposition": {"const": "blocked-read-only"}
+      }
+    },
+    "results": {
+      "type": "array", "minItems": 13, "maxItems": 13,
+      "prefixItems": [
+        {"$ref": "#/$defs/control001"}, {"$ref": "#/$defs/control002"}, {"$ref": "#/$defs/sync001"}, {"$ref": "#/$defs/sync002"}, {"$ref": "#/$defs/sync003"}, {"$ref": "#/$defs/sync004"}, {"$ref": "#/$defs/sync005"}, {"$ref": "#/$defs/sync006"}, {"$ref": "#/$defs/sync007"}, {"$ref": "#/$defs/ae001"}, {"$ref": "#/$defs/sync008"}, {"$ref": "#/$defs/sync009"}, {"$ref": "#/$defs/sync010"}
+      ], "items": false
+    }
+  },
+  "$defs": {
+    "participantBase": {"type": "object", "additionalProperties": false, "required": ["publicId", "role", "privateSlot"]},
+    "host": {"allOf": [{"$ref": "#/$defs/participantBase"}, {"properties": {"publicId": {"const": "host"}, "role": {"const": "host"}, "privateSlot": {"const": "slot-1"}}}]},
+    "clientA": {"allOf": [{"$ref": "#/$defs/participantBase"}, {"properties": {"publicId": {"const": "client-a"}, "role": {"const": "client"}, "privateSlot": {"const": "slot-2"}}}]},
+    "clientB": {"allOf": [{"$ref": "#/$defs/participantBase"}, {"properties": {"publicId": {"const": "client-b"}, "role": {"const": "client"}, "privateSlot": {"const": "slot-3"}}}]},
+    "comparisonBase": {"type": "object", "additionalProperties": false, "required": ["participant", "path", "sha256"], "properties": {"participant": {"type": "string"}, "path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}},
+    "comparisonHost": {"allOf": [{"$ref": "#/$defs/comparisonBase"}, {"properties": {"participant": {"const": "host"}, "path": {"const": "manifests-private/host-comparison.json"}}}]},
+    "comparisonClientA": {"allOf": [{"$ref": "#/$defs/comparisonBase"}, {"properties": {"participant": {"const": "client-a"}, "path": {"const": "manifests-private/client-a-comparison.json"}}}]},
+    "comparisonClientB": {"allOf": [{"$ref": "#/$defs/comparisonBase"}, {"properties": {"participant": {"const": "client-b"}, "path": {"const": "manifests-private/client-b-comparison.json"}}}]},
+    "resultBase": {"type": "object", "additionalProperties": false, "required": ["testId", "path"], "properties": {"testId": {"type": "string"}, "path": {"type": "string"}}},
+    "control001": {"allOf": [{"$ref": "#/$defs/resultBase"}, {"properties": {"testId": {"const": "CONTROL-001"}, "path": {"const": "results/CONTROL-001.json"}}}]},
+    "control002": {"allOf": [{"$ref": "#/$defs/resultBase"}, {"properties": {"testId": {"const": "CONTROL-002"}, "path": {"const": "results/CONTROL-002.json"}}}]},
+    "sync001": {"allOf": [{"$ref": "#/$defs/resultBase"}, {"properties": {"testId": {"const": "SYNC-001"}, "path": {"const": "results/SYNC-001.json"}}}]},
+    "sync002": {"allOf": [{"$ref": "#/$defs/resultBase"}, {"properties": {"testId": {"const": "SYNC-002"}, "path": {"const": "results/SYNC-002.json"}}}]},
+    "sync003": {"allOf": [{"$ref": "#/$defs/resultBase"}, {"properties": {"testId": {"const": "SYNC-003"}, "path": {"const": "results/SYNC-003.json"}}}]},
+    "sync004": {"allOf": [{"$ref": "#/$defs/resultBase"}, {"properties": {"testId": {"const": "SYNC-004"}, "path": {"const": "results/SYNC-004.json"}}}]},
+    "sync005": {"allOf": [{"$ref": "#/$defs/resultBase"}, {"properties": {"testId": {"const": "SYNC-005"}, "path": {"const": "results/SYNC-005.json"}}}]},
+    "sync006": {"allOf": [{"$ref": "#/$defs/resultBase"}, {"properties": {"testId": {"const": "SYNC-006"}, "path": {"const": "results/SYNC-006.json"}}}]},
+    "sync007": {"allOf": [{"$ref": "#/$defs/resultBase"}, {"properties": {"testId": {"const": "SYNC-007"}, "path": {"const": "results/SYNC-007.json"}}}]},
+    "ae001": {"allOf": [{"$ref": "#/$defs/resultBase"}, {"properties": {"testId": {"const": "AE-001"}, "path": {"const": "results/AE-001.json"}}}]},
+    "sync008": {"allOf": [{"$ref": "#/$defs/resultBase"}, {"properties": {"testId": {"const": "SYNC-008"}, "path": {"const": "results/SYNC-008.json"}}}]},
+    "sync009": {"allOf": [{"$ref": "#/$defs/resultBase"}, {"properties": {"testId": {"const": "SYNC-009"}, "path": {"const": "results/SYNC-009.json"}}}]},
+    "sync010": {"allOf": [{"$ref": "#/$defs/resultBase"}, {"properties": {"testId": {"const": "SYNC-010"}, "path": {"const": "results/SYNC-010.json"}}}]}
   }
 }

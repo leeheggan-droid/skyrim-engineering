@@ -3,95 +3,175 @@ privateClientSlots:
   - slot-1
   - slot-2
   - slot-3
+publicRoles: {host: slot-1, client-a: slot-2, client-b: slot-3}
+captureCommand: tools/collect-diagnostics.ps1 -SourcePath <sanitized-log-root> -OutputPath <case-evidence-root>
 cases:
   - id: CONTROL-001
     checkpoint: clean-stock-launch
-    preconditions: [clean stock profile, no paid upgrade]
+    fixture: clean stock profile; pre-existing clean-stock-launch save is never overwritten
+    preconditions: [Steam Skyrim SE/AE installed, no paid upgrade required]
+    actors: [host]
+    actions: [host launches Steam Skyrim Special Edition, host records runtime at main menu]
+    timing: [capture begins before launch, stop after main menu remains responsive for 30 seconds]
     steps: [launch Steam Skyrim Special Edition to main menu]
     expected: [main menu loads without crash]
     evidence: [diagnostic-manifest.json, skyrim.log]
-    cleanup: [exit to desktop, retain clean-stock-launch checkpoint]
+    capture: run tools/collect-diagnostics.ps1 after exit and hash the emitted evidence
+    transition: control-does-not-create-multiplayer-checkpoint
+    cleanup: [exit to desktop, retain the original clean-stock-launch checkpoint unchanged]
   - id: CONTROL-002
     checkpoint: clean-local-connect
-    preconditions: [clean stock profile, local host server available]
-    steps: [connect client-a to local host server]
-    expected: [client-a reaches the shared session]
+    fixture: clean server plus clean-local-connect save copied independently to host and both clients
+    preconditions: [canonical manifests match, local host server available]
+    actors: [host, client-a, client-b]
+    actions: [host starts server, host connects, client-a connects, client-b connects]
+    timing: [connect in listed order at 10-second intervals, observe roster for 30 seconds]
+    steps: [connect all three participants to local host server]
+    expected: [host and both clients reach the shared session]
     evidence: [diagnostic-manifest.json, together.log]
-    cleanup: [disconnect client-a, retain clean-local-connect checkpoint]
+    capture: run tools/collect-diagnostics.ps1 on each participant then hash the emitted evidence
+    transition: control-session-is-discarded-before-SYNC-001
+    cleanup: [disconnect all participants, restore clean-local-connect copies]
   - id: SYNC-001
     checkpoint: party-formed
-    preconditions: [all clients connected with identical profiles]
-    steps: [host creates party, client-a and client-b join]
-    expected: [all clients display the same party roster]
-    evidence: [diagnostic-manifest.json, together.log]
-    cleanup: [disband party, retain party-formed checkpoint]
+    fixture: clean-local-connect copies and a new disposable party-formed test save
+    preconditions: [three participants connected, canonical manifests match]
+    actors: [host, client-a, client-b]
+    actions: [host creates party, client-a joins, client-b joins, each records roster]
+    timing: [join in listed order at 10-second intervals, observe for 30 seconds]
+    steps: [form a three-participant party]
+    expected: [all participants display host, client-a, and client-b exactly once]
+    evidence: [diagnostic-manifest.json, party.log]
+    capture: run tools/collect-diagnostics.ps1 on all participants and hash the emitted evidence
+    transition: retain-disposable-party-formed-test-save-for-dependent-cases
+    cleanup: [disband party, restore party-formed checkpoint copies]
   - id: SYNC-002
     checkpoint: inventory-before-transfer
-    preconditions: [party formed, one mundane item available]
-    steps: [client-a transfers item through host-visible inventory flow]
-    expected: [host and clients converge on item ownership]
+    fixture: party-formed copies with one named mundane item owned by client-a
+    preconditions: [three-participant party formed, canonical manifests match]
+    actors: [host, client-a, client-b]
+    actions: [record inventories, client-a transfers the named item, host and client-b record ownership]
+    timing: [record at T-5 seconds, transfer at T0, record at T+5 and T+30]
+    steps: [execute one host-visible inventory transfer]
+    expected: [all three participants converge on exactly one owner]
     evidence: [diagnostic-manifest.json, inventory.log]
-    cleanup: [restore item owner, retain inventory-before-transfer checkpoint]
+    capture: run tools/collect-diagnostics.ps1 on all participants and hash the emitted evidence
+    transition: discard-test-save-after-evidence-capture
+    cleanup: [restore inventory-before-transfer checkpoint copies]
   - id: SYNC-003
     checkpoint: combat-before-engagement
-    preconditions: [party formed, isolated hostile available]
-    steps: [all clients engage hostile within proximity]
-    expected: [host authority and combat outcome converge]
+    fixture: party-formed copies beside one isolated hostile
+    preconditions: [three-participant party formed, canonical manifests match]
+    actors: [host, client-a, client-b]
+    actions: [host initiates combat, both clients engage, each records hostile health and death state]
+    timing: [begin together on countdown, record at T0 and every 5 seconds until T+30]
+    steps: [engage exactly one isolated hostile]
+    expected: [health and final combat outcome converge for all participants]
     evidence: [diagnostic-manifest.json, combat.log]
-    cleanup: [return to combat-before-engagement checkpoint]
+    capture: run tools/collect-diagnostics.ps1 on all participants and hash the emitted evidence
+    transition: discard-test-save-after-evidence-capture
+    cleanup: [restore combat-before-engagement checkpoint copies]
   - id: SYNC-004
     checkpoint: quest-before-stage
-    preconditions: [party formed, reversible quest stage available]
-    steps: [client-a proposes quest stage action and host commits it]
-    expected: [quest stage converges after host commit]
+    fixture: party-formed copies before one reversible test quest stage
+    preconditions: [three-participant party formed, canonical manifests match]
+    actors: [host, client-a, client-b]
+    actions: [client-a requests the action, host performs the irreversible commit, all record stage and visible effects]
+    timing: [record before request, at host commit, and 30 seconds after commit]
+    steps: [perform one host-authoritative quest-stage transition]
+    expected: [stage and externally visible effects converge after host commit]
     evidence: [diagnostic-manifest.json, quest.log]
-    cleanup: [restore quest-before-stage checkpoint]
+    capture: run tools/collect-diagnostics.ps1 on all participants and hash the emitted evidence
+    transition: discard-test-save-after-evidence-capture
+    cleanup: [restore quest-before-stage checkpoint copies; never reverse the stage in place]
   - id: SYNC-005
     checkpoint: horse-before-mount
-    preconditions: [party formed, one horse available]
-    steps: [client-a mounts then dismounts horse]
-    expected: [mount state converges without duplicate horse]
+    fixture: party-formed copies beside one named horse
+    preconditions: [three-participant party formed, canonical manifests match]
+    actors: [host, client-a, client-b]
+    actions: [client-a mounts, all record mount state, client-a dismounts, all record horse count]
+    timing: [record at T-5, T+5 after mount, and T+5 after dismount]
+    steps: [mount and dismount exactly one named horse]
+    expected: [mount state converges and exactly one horse remains]
     evidence: [diagnostic-manifest.json, mount.log]
-    cleanup: [dismount all clients, retain horse-before-mount checkpoint]
+    capture: run tools/collect-diagnostics.ps1 on all participants and hash the emitted evidence
+    transition: discard-test-save-after-evidence-capture
+    cleanup: [restore horse-before-mount checkpoint copies]
   - id: SYNC-006
     checkpoint: pet-before-command
-    preconditions: [party formed, one pet command target available]
-    steps: [client-a issues a pet command]
-    expected: [pet state converges after host acknowledgement]
+    fixture: party-formed copies with one named pet and one destination marker
+    preconditions: [three-participant party formed, canonical manifests match]
+    actors: [host, client-a, client-b]
+    actions: [client-a issues one move command, all record pet position and command completion]
+    timing: [record at T-5, command at T0, record at T+10 and T+30]
+    steps: [issue one bounded pet move command]
+    expected: [pet position and command state converge]
     evidence: [diagnostic-manifest.json, pet.log]
-    cleanup: [reset pet command state, retain pet-before-command checkpoint]
+    capture: run tools/collect-diagnostics.ps1 on all participants and hash the emitted evidence
+    transition: discard-test-save-after-evidence-capture
+    cleanup: [restore pet-before-command checkpoint copies]
   - id: SYNC-007
     checkpoint: home-before-entry
-    preconditions: [party formed, home and container available]
-    steps: [client-a enters home and opens container]
-    expected: [home transition and container state converge]
+    fixture: party-formed copies outside one home with one named container left unopened
+    preconditions: [three-participant party formed, canonical manifests match]
+    actors: [host, client-a, client-b]
+    actions: [host enters first, both clients enter, client-a opens named container, all record cell and contents]
+    timing: [enter in listed order at 5-second intervals, inspect container at T+20]
+    steps: [cross one load door and inspect one container]
+    expected: [cell transition and container contents converge]
     evidence: [diagnostic-manifest.json, home.log]
-    cleanup: [leave home, restore home-before-entry checkpoint]
+    capture: run tools/collect-diagnostics.ps1 on all participants and hash the emitted evidence
+    transition: discard-test-save-after-evidence-capture
+    cleanup: [restore home-before-entry checkpoint copies]
   - id: AE-001
     checkpoint: survival-before-toggle
-    preconditions: [party formed, bundled Survival Mode enabled]
-    steps: [all clients travel and rest within the same cell]
+    fixture: party-formed copies with bundled Survival Mode enabled before travel
+    preconditions: [three-participant party formed, canonical manifests match]
+    actors: [host, client-a, client-b]
+    actions: [all record survival state, host initiates travel, all rest in the same cell, all record state]
+    timing: [record before travel, on arrival, and after one-hour rest]
+    steps: [travel and rest once with bundled Survival Mode enabled]
     expected: [Survival Mode state remains converged]
     evidence: [diagnostic-manifest.json, survival.log]
-    cleanup: [restore survival-before-toggle checkpoint]
+    capture: run tools/collect-diagnostics.ps1 on all participants and hash the emitted evidence
+    transition: discard-test-save-after-evidence-capture
+    cleanup: [restore survival-before-toggle checkpoint copies]
   - id: SYNC-008
     checkpoint: death-before-test
-    preconditions: [party formed, safe death test area available]
-    steps: [client-a dies and respawns]
-    expected: [respawn state converges without party loss]
+    fixture: party-formed copies in a safe death-test area
+    preconditions: [three-participant party formed, canonical manifests match]
+    actors: [host, client-a, client-b]
+    actions: [client-a dies by the agreed hazard, client-a respawns, all record party and actor state]
+    timing: [record at T-5, death at T0, respawn at T+10, final record at T+30]
+    steps: [perform one controlled client death and respawn]
+    expected: [respawn and party membership converge]
     evidence: [diagnostic-manifest.json, death.log]
-    cleanup: [return to death-before-test checkpoint]
+    capture: run tools/collect-diagnostics.ps1 on all participants and hash the emitted evidence
+    transition: discard-test-save-after-evidence-capture
+    cleanup: [restore death-before-test checkpoint copies]
   - id: SYNC-009
     checkpoint: reconnect-before-disconnect
-    preconditions: [party formed, stable shared state]
-    steps: [disconnect client-b, advance host state, reconnect client-b]
-    expected: [full snapshot restores convergence]
+    fixture: party-formed copies with one named item and stable shared state
+    preconditions: [three-participant party formed, canonical manifests match]
+    actors: [host, client-a, client-b]
+    actions: [client-b disconnects, host moves named item, client-b reconnects, all record ownership and roster]
+    timing: [disconnect at T0, host action at T+10, reconnect at T+20, record at T+50]
+    steps: [disconnect one client, advance one bounded host state, reconnect that client]
+    expected: [snapshot restores roster and named-item ownership convergence]
     evidence: [diagnostic-manifest.json, reconnect.log]
-    cleanup: [confirm all clients connected, retain reconnect-before-disconnect checkpoint]
+    capture: run tools/collect-diagnostics.ps1 on all participants and hash the emitted evidence
+    transition: discard-test-save-after-evidence-capture
+    cleanup: [restore reconnect-before-disconnect checkpoint copies]
   - id: SYNC-010
     checkpoint: save-before-continuity
-    preconditions: [party formed, all clients converged]
-    steps: [host saves, all clients reload cleanly]
-    expected: [state remains converged after save continuity test]
+    fixture: disposable party-formed copies; create one explicitly named test save after bounded item transfer
+    preconditions: [three-participant party formed, canonical manifests match]
+    actors: [host, client-a, client-b]
+    actions: [perform bounded transfer, host creates test save, all exit, server restarts, all load their matching test-save copies and reconnect]
+    timing: [save at T0, exit by T+15, restart, reconnect in listed order, observe for 60 seconds]
+    steps: [create and reload a disposable continuity save; never overwrite the clean baseline]
+    expected: [roster and bounded transferred state converge after reload]
     evidence: [diagnostic-manifest.json, save.log]
-    cleanup: [retain only save-before-continuity checkpoint]
+    capture: run tools/collect-diagnostics.ps1 on all participants and hash the emitted evidence
+    transition: reload-from-test-save-not-clean-baseline
+    cleanup: [delete disposable test saves only after evidence hashes are recorded; retain clean checkpoint copies]

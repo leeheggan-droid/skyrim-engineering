@@ -3,15 +3,63 @@
   "$id": "https://skyrim-engineering.example/schemas/anniversary-together-result-v1.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "testId", "status", "clients", "evidence"],
+  "required": ["schema", "testId", "status", "versions", "participants", "checkpoint", "expected", "actual", "analysis", "creationAttribution", "evidence"],
   "properties": {
     "schema": {"const": "skyrim-engineering.anniversary-together.result/v1"},
     "testId": {"type": "string", "pattern": "^(CONTROL|SYNC|AE)-[0-9]{3}$"},
     "status": {"enum": ["pass", "partial", "host-only", "desync", "crash", "blocked", "untested"]},
-    "clients": {"type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true, "items": {"$ref": "#/$defs/publicClientId"}},
-    "evidence": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^(diagnostic-manifest\\.json|[a-z0-9-]+\\.(log|json))$"}}
+    "versions": {
+      "type": "object", "additionalProperties": false,
+      "required": ["skyrimRuntime", "skyrimTogetherReborn", "server"],
+      "properties": {
+        "skyrimRuntime": {"type": "string", "minLength": 1},
+        "skyrimTogetherReborn": {"type": "string", "minLength": 1},
+        "server": {"type": "string", "minLength": 1}
+      }
+    },
+    "participants": {"type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true, "items": {"enum": ["host", "client-a", "client-b"]}},
+    "checkpoint": {"type": "string", "minLength": 1},
+    "expected": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "actual": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "analysis": {
+      "type": "object", "additionalProperties": false,
+      "required": ["observation", "hypothesis", "confidence", "tests", "uncertainty", "falsifyingCheck"],
+      "properties": {
+        "observation": {"type": "string", "minLength": 1},
+        "hypothesis": {"type": "string", "minLength": 1},
+        "confidence": {"enum": ["low", "medium", "high"]},
+        "tests": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "uncertainty": {"type": "string", "minLength": 1},
+        "falsifyingCheck": {"type": "string", "minLength": 1}
+      }
+    },
+    "creationAttribution": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["creationId", "assessment", "basis"],
+        "properties": {
+          "creationId": {"type": "string", "pattern": "^[A-Za-z0-9_-]+$"},
+          "assessment": {"enum": ["implicated", "not-implicated", "unknown"]},
+          "basis": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "evidence": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["path", "sha256"],
+        "properties": {
+          "path": {"type": "string", "pattern": "^(diagnostic-manifest\\.json|[a-z0-9-]+\\.(log|json))$"},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+        }
+      }
+    }
   },
-  "$defs": {
-    "publicClientId": {"enum": ["client-a", "client-b", "client-c"]}
-  }
+  "allOf": [
+    {
+      "if": {"properties": {"testId": {"pattern": "^SYNC-"}}, "required": ["testId"]},
+      "then": {"properties": {"participants": {"minItems": 3, "maxItems": 3, "contains": {"const": "host"}}}}
+    }
+  ]
 }

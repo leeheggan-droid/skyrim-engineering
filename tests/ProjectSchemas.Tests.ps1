@@ -30,11 +30,11 @@ Describe 'Anniversary Together compatibility project contracts' {
     It 'permits only public anonymous client identifiers and supported result statuses' {
         # Break caught: a result that records a real identity or an untriageable status.
         $resultSchema = Get-Content -LiteralPath $resultSchemaPath -Raw | ConvertFrom-Json
-        $clientEnum = @($resultSchema.'$defs'.publicClientId.enum)
+        $clientEnum = @($resultSchema.properties.participants.items.enum)
         $statusEnum = @($resultSchema.properties.status.enum)
 
         $resultSchema.properties.schema.const | Should -Be 'skyrim-engineering.anniversary-together.result/v1'
-        $clientEnum | Should -Be @('client-a', 'client-b', 'client-c')
+        $clientEnum | Should -Be @('host', 'client-a', 'client-b')
         $statusEnum | Should -Be @('pass', 'partial', 'host-only', 'desync', 'crash', 'blocked', 'untested')
         $resultSchema.additionalProperties | Should -BeFalse
     }
@@ -46,7 +46,63 @@ Describe 'Anniversary Together compatibility project contracts' {
         $manifestSchema.properties.schema.const | Should -Be 'skyrim-engineering.anniversary-together.manifest/v1'
         @($manifestSchema.required) | Should -Contain 'privateClientSlots'
         $manifestSchema.properties.privateClientSlots.items.enum | Should -Be @('slot-1', 'slot-2', 'slot-3')
-        $manifestSchema.properties.results.items.properties.path.pattern | Should -Be '^results/[A-Z]+-[0-9]{3}\.json$'
+        $manifestSchema.properties.results.prefixItems[0].'$ref' | Should -Be '#/$defs/control001'
         $manifestSchema.additionalProperties | Should -BeFalse
+    }
+
+    It 'makes every case executable and separates control transitions from retained checkpoints' {
+        # Break caught: prose-only cases whose actor, timing, capture command, or reset point is ambiguous.
+        $caseText = Get-Content -LiteralPath $casesPath -Raw
+        $caseCount = ([regex]::Matches($caseText, '(?m)^  - id: ')).Count
+        foreach ($field in @('fixture:', 'actors:', 'actions:', 'timing:', 'capture:', 'transition:', 'cleanup:')) {
+            ([regex]::Matches($caseText, '(?m)^    ' + [regex]::Escape($field))).Count | Should -Be $caseCount
+        }
+        $caseText | Should -Match 'CONTROL-001[\s\S]+transition: control-does-not-create-multiplayer-checkpoint'
+        $caseText | Should -Match 'SYNC-010[\s\S]+transition: reload-from-test-save-not-clean-baseline'
+        $caseText | Should -Match ([regex]::Escape('tools/collect-diagnostics.ps1'))
+    }
+
+    It 'requires a three-participant version-pinned scientific result with hashed evidence' {
+        # Break caught: a SYNC result that cannot establish who ran it, against which bytes, or what could falsify the diagnosis.
+        $schema = Get-Content -LiteralPath $resultSchemaPath -Raw | ConvertFrom-Json
+        foreach ($name in @('versions', 'participants', 'checkpoint', 'expected', 'actual', 'analysis', 'creationAttribution', 'evidence')) {
+            @($schema.required) | Should -Contain $name
+        }
+        $schema.properties.participants.minItems | Should -Be 1
+        $schema.properties.participants.maxItems | Should -Be 3
+        @($schema.properties.participants.items.enum) | Should -Be @('host', 'client-a', 'client-b')
+        $syncRule = @($schema.allOf)[0]
+        $syncRule.if.properties.testId.pattern | Should -Be '^SYNC-'
+        $syncRule.then.properties.participants.minItems | Should -Be 3
+        foreach ($name in @('observation', 'hypothesis', 'confidence', 'tests', 'uncertainty', 'falsifyingCheck')) {
+            @($schema.properties.analysis.required) | Should -Contain $name
+        }
+        $schema.properties.evidence.items.properties.sha256.pattern | Should -Be '^[a-f0-9]{64}$'
+    }
+
+    It 'requires one canonical manifest, explicit role-to-slot mapping, parity reconciliation, and every case exactly once' {
+        # Break caught: cherry-picked case results or a client entering a run despite manifest mismatch.
+        $schema = Get-Content -LiteralPath $manifestSchemaPath -Raw | ConvertFrom-Json
+        foreach ($name in @('canonicalCreationManifest', 'participants', 'parityReconciliation', 'results')) {
+            @($schema.required) | Should -Contain $name
+        }
+        $schema.properties.participants.minItems | Should -Be 3
+        $schema.properties.participants.maxItems | Should -Be 3
+        $schema.properties.parityReconciliation.properties.mismatchDisposition.const | Should -Be 'blocked-read-only'
+        @($schema.properties.parityReconciliation.properties.comparisonReports.prefixItems).Count | Should -Be 3
+        $schema.properties.results.minItems | Should -Be 13
+        $schema.properties.results.maxItems | Should -Be 13
+        @($schema.properties.results.prefixItems).Count | Should -Be 13
+    }
+
+    It 'documents canonical creation and fail-closed read-only parity reconciliation' {
+        # Break caught: operators improvise a writable repair or silently choose a different canonical laptop.
+        $decisions = Get-Content -LiteralPath (Join-Path $projectRoot 'decisions.md') -Raw
+        $decisions | Should -Match 'Canonical manifest creation'
+        $decisions | Should -Match 'inventory-creations\.ps1'
+        $decisions | Should -Match 'compare-installations\.ps1'
+        $decisions | Should -Match 'read-only'
+        $decisions | Should -Match '(?s)mismatch.*blocked'
+        $decisions | Should -Match 'provisional'
     }
 }
