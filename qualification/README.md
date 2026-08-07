@@ -11,8 +11,8 @@ and the `v1.0 qualified` release only.
 
 The human-approved v0.1 laptop boundary is also intentionally separate from
 this live state: `setup-laptop.ps1` supports read-only AuditOnly, Plan, and
-Verify. Apply and Rollback are deferred pending a native Windows
-handle-relative writer and OS-protected journal. That deferral does not change
+Verify. Apply and Rollback are delegated to a pinned MO2 or Wabbajack workflow
+with profile isolation and tool-owned rollback. That deferral does not change
 or waive any live qualification track below.
 
 Each live track is one of:

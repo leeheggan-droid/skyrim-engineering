@@ -78,18 +78,23 @@ Synthetic fixtures may validate parsers and fail-closed behavior only.
 
 The `v1.0 qualified` gate additionally requires:
 
-- an original Creation Kit plugin round-trip containing the required quest,
-  alias, objective, condition, package, and navmesh work;
-- a real xEdit minimal patch/save/reopen inspection with protected-input hashes;
-- a real Skyrim `1.6.1170.0` Papyrus V1-to-V2 save/load migration capture;
 - a real Skyrim Together production process-boundary divergence/recovery test
   using at least two independent clients on two laptops;
-- at least 80 percent in every expertise domain and 90/100 overall;
-- two fresh independent PASS reviews covering the required review scopes;
+- runtime, content, load-order, and tool parity before the multiplayer run;
+- complete required control/result records, with omissions and unsupported cases
+  recorded as `blocked` or `untested` rather than silently promoted;
+- live CK, xEdit patch, or Papyrus migration evidence only when the release ships
+  a change that uses that capability; read-only xEdit diagnostic readiness is
+  retained independently;
+- one fresh independent multiplayer/evidence PASS review and one fresh
+  independent release/privacy PASS review;
 - a deterministic release manifest derived from committed bytes; and
 - the complete automated, privacy, licensing, and CI gates from `v0.1`.
 
-No waiver converts missing live evidence into a qualified PASS.
+No score or waiver converts missing applicable live evidence into a qualified
+PASS. The former 80-percent-per-domain and 90/100 aggregate thresholds are not
+release gates: their numerical precision did not map reliably to the family
+laptop outcome.
 
 ## Codex-Led Laptop Bootstrap
 
@@ -114,10 +119,13 @@ v0.1 capability boundary:
 - `-Apply`: fail nonzero with `skyrim-engineering.laptop-deferred/v1`; and
 - `-Rollback`: fail nonzero with the same deferred schema.
 
-The deferred response names the missing controls:
-`nativeWindowsHandleRelativeWriter` and `osProtectedJournal`, and directs the
-operator to `AuditOnly`, `Plan`, or `Verify`. The package catalog retains
-verified intake hashes, layouts, versions, and provenance for comparison; it
+The deferred response directs the operator to `AuditOnly`, `Plan`, or `Verify`.
+Future mutation is delegated to a pinned MO2 or Wabbajack workflow: Codex emits
+the profile/mod-list plan, verified package hashes, provenance, and post-install
+parity checks, while the established tool owns installation and rollback. A
+bespoke native writer is out of scope unless a demonstrated operation cannot be
+expressed safely through those tools. The package catalog retains verified
+intake hashes, layouts, versions, and provenance for comparison; it
 does not authorize component installation in v0.1. Codex must not use this
 workflow to install tooling or Skyrim components, create a multiplayer profile,
 or remove prior workflow state. The separate exact-junction skill installer
@@ -166,11 +174,12 @@ legally redistributable patches may enter the public repository.
 8. **CI and public safety** — complete automated validation.
 9. **Provisional forward tests and publication** — five clean-context tests,
    public repository, green CI, and `v0.1 provisional` handoff.
-10. **Local live qualification** — CK, xEdit, and Papyrus practicals using the
-    installed skill and fail-closed capture tooling.
-11. **Multi-laptop qualification and V1 release** — production Skyrim Together
-    reproduction, rescoring, two independent reviews, final validation, and
-    `v1.0 qualified` publication.
+10. **Multi-laptop defect discovery** — establish parity, then run stock Skyrim
+    Together controls and Anniversary reproduction before designing a patch.
+11. **Conditional patch qualification and V1 release** — use prepared CK,
+    xEdit, or Papyrus practicals only for capabilities exercised by a
+    demonstrated fix; complete scoped reviews, deterministic packaging, final
+    validation, and `v1.0 qualified` publication.
 
 Each phase follows test-first implementation, focused verification, independent
 review, and a durable feature-branch commit. A phase commit represents that

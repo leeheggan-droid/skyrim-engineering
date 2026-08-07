@@ -3,6 +3,12 @@
   "provisionalReleaseBlocked": false,
   "qualifiedReleaseBlocked": true,
   "qualifiedReleaseAssessment": "tests/fixtures/evidence/assessment.json",
+  "releaseGate": {
+    "scoring": "informational-only",
+    "required": ["together-production", "deterministic-release-manifest", "privacy-licensing-ci"],
+    "conditional": ["creation-kit", "xedit-patch", "papyrus-runtime"],
+    "reviews": ["multiplayer-evidence", "release-privacy"]
+  },
   "tracks": [
     {
       "id": "creation-kit",

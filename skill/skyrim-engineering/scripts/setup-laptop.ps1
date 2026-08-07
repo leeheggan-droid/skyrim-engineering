@@ -520,7 +520,7 @@ function New-Plan {
             schema = 'skyrim-engineering.laptop-deferred/v1'
             status = 'deferred'
             modes = @('Apply', 'Rollback')
-            requiredCapabilities = @('nativeWindowsHandleRelativeWriter', 'osProtectedJournal')
+            requiredCapabilities = @('externalProfileManager', 'toolOwnedRollback')
         }
         differences = $Audit.differences
     }
@@ -534,8 +534,8 @@ if ($Apply -or $Rollback) {
         schema = 'skyrim-engineering.laptop-deferred/v1'
         mode = $requestedMode
         status = 'deferred'
-        message = 'Component Apply and Rollback are deferred for v0.1 pending a native Windows handle-relative writer and OS-protected journal. Use -AuditOnly, -Plan, or -Verify; make component changes manually outside this workflow.'
-        requiredCapabilities = @('nativeWindowsHandleRelativeWriter', 'osProtectedJournal')
+        message = 'Component Apply and Rollback are deferred for v0.1 pending a pinned MO2 or Wabbajack workflow with tool-owned rollback. Use -AuditOnly, -Plan, or -Verify; do not mutate the live game tree.'
+        requiredCapabilities = @('externalProfileManager', 'toolOwnedRollback')
         supportedModes = @('AuditOnly', 'Plan', 'Verify')
     }
     throw ($deferred | ConvertTo-Json -Depth 4 -Compress)

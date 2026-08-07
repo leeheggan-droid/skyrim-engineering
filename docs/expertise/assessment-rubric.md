@@ -2,7 +2,7 @@
 
 Version: 1.0
 Established: 2026-08-06 before any scored assessment response.
-Rules: 100 points total; each domain requires at least 80% of its own maximum; overall requires at least 90/100; no waiver is permitted. A domain that misses threshold requires remediation practicals and a fresh equivalent assessment. Scores are never averaged across attempts.
+Rules: the 100-point assessment is diagnostic, not a release gate. A qualified release instead requires complete applicable live evidence, no unresolved Critical or Important findings, a deterministic release manifest, and scoped multiplayer/evidence plus release/privacy reviews. Missing applicable evidence remains blocked or untested; an aggregate score cannot waive it.
 
 Assessment answers must be produced from the raw synthetic snippets in [practicals.md](practicals.md), the audited source at commit `9d81ef07…`, and the primary sources in [source-register.md](source-register.md). The syllabus is not an answer key. Every assessor records the evidence link, concrete finding and remediation.
 

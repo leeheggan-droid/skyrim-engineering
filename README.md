@@ -62,9 +62,9 @@ $setup = '.\skill\skyrim-engineering\scripts\setup-laptop.ps1'
 ```
 
 Use `Get-Help $setup -Full` for the required path and manifest parameters.
-Component `Apply` and `Rollback` are deferred in v0.1 pending a native Windows
-handle-relative writer and OS-protected journal. The helper will fail closed if
-those modes are requested.
+Component `Apply` and `Rollback` are deferred in v0.1 to a pinned MO2 or
+Wabbajack workflow with tool-owned rollback. The helper will fail closed if
+those modes are requested; it does not mutate the live game tree.
 
 ## Inventory and compare Anniversary installations
 

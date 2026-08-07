@@ -1,6 +1,6 @@
 # Codex laptop assessment
 
-For the human-approved `v0.1 provisional` boundary, `setup-laptop.ps1` is read-only. It supports `-AuditOnly`, `-Plan`, and `-Verify`. Component `-Apply` and `-Rollback` are reserved interface names that always fail nonzero with schema `skyrim-engineering.laptop-deferred/v1`. They remain deferred until the workflow has both a native Windows handle-relative writer and an OS-protected journal.
+For the human-approved `v0.1 provisional` boundary, `setup-laptop.ps1` is read-only. It supports `-AuditOnly`, `-Plan`, and `-Verify`. Component `-Apply` and `-Rollback` are reserved interface names that always fail nonzero with schema `skyrim-engineering.laptop-deferred/v1`. Future mutation is delegated to a pinned MO2 or Wabbajack workflow with profile isolation and tool-owned rollback.
 
 The separate `install-skill.ps1` junction installer remains enabled. It installs only the repository skill junction; it does not install or change Skyrim components.
 
@@ -17,9 +17,13 @@ If `-Apply` or `-Rollback` is requested, the error record includes:
 - schema `skyrim-engineering.laptop-deferred/v1`;
 - the requested mode and `deferred` status;
 - supported modes `AuditOnly`, `Plan`, and `Verify`; and
-- the two missing safety capabilities: `nativeWindowsHandleRelativeWriter` and `osProtectedJournal`.
+- the delegated capabilities: `externalProfileManager` and `toolOwnedRollback`.
 
-Use an owning installer or a separately reviewed manual procedure for component changes. This workflow provides no operational installation or rollback instructions.
+Codex should emit a deterministic profile/mod-list plan, verified package hashes,
+and post-install parity checks for an owning MO2 or Wabbajack workflow. Do not
+build a bespoke writer unless a demonstrated operation cannot be expressed
+safely through those tools. This workflow itself provides no operational
+installation or rollback instructions.
 
 ## Terminal sequence
 

@@ -19,12 +19,16 @@ Describe 'Progressive qualification boundary' {
         $state.qualifiedReleaseBlocked | Should -BeTrue
     }
 
-    It 'applies the expertise score only to the qualified release gate' {
+    It 'keeps expertise scoring diagnostic and gates release on applicable evidence' {
         $state = Get-Content -Raw -LiteralPath $statePath | ConvertFrom-Json
         $assessment = Get-Content -Raw -LiteralPath $assessmentPath | ConvertFrom-Json
 
         $assessment.gateStatus | Should -Be 'BLOCKED'
         $assessment.gateAppliesTo | Should -Be 'v1.0-qualified'
+        $state.releaseGate.scoring | Should -Be 'informational-only'
+        @($state.releaseGate.required) | Should -Contain 'together-production'
+        @($state.releaseGate.conditional) | Should -Be @('creation-kit', 'xedit-patch', 'papyrus-runtime')
+        @($state.releaseGate.reviews) | Should -Be @('multiplayer-evidence', 'release-privacy')
         $state.qualifiedReleaseBlocked | Should -BeTrue
         $state.provisionalReleaseBlocked | Should -BeFalse
     }

@@ -229,7 +229,7 @@ Windows handle-relative writer and OS-protected journal.
 **Interfaces:**
 - Consumes `-RepositoryRoot`, optional `-CodexSkillsRoot`, `-WhatIf`; creates only an exact verified junction.
 - `setup-laptop.ps1` consumes exactly one mode from `-AuditOnly|-Plan|-Apply|-Verify|-Rollback`, `-ClientId client-a|client-b|client-c`, explicit `-GameRoot`, `-ProfileRoot`, `-CanonicalManifest`, and `-StateDirectory`.
-- AuditOnly, Plan, and Verify are read-only. Apply and Rollback return nonzero with `skyrim-engineering.laptop-deferred/v1`, including `nativeWindowsHandleRelativeWriter` and `osProtectedJournal` prerequisites, before any root traversal or mutation.
+- AuditOnly, Plan, and Verify are read-only. Apply and Rollback return nonzero with `skyrim-engineering.laptop-deferred/v1`, including `externalProfileManager` and `toolOwnedRollback` prerequisites, before any root traversal or mutation. Codex emits plans for pinned MO2/Wabbajack tooling rather than implementing a parallel package manager.
 - Produces sanitized schemas `skyrim-engineering.laptop-audit/v1` and `skyrim-engineering.laptop-plan/v1`; retains verified package-intake evidence without emitting installation actions. Categories remain `anniversaryBaseline|approvedShared|machineSpecific|unknownOrIncompatible`.
 
 - [ ] **Step 1: Write failing tests** for dry-run, junction success/idempotence/refusals, mutually exclusive modes, anonymous client IDs, deterministic audit/plan/verify output, missing/extra/hash/version/order differences, zero-mutation deferred Apply/Rollback variants, and secret/personal-path rejection.
@@ -269,35 +269,35 @@ Windows handle-relative writer and OS-protected journal.
 - [ ] **Step 4: Merge to `main`, create/push public repository, push `v0.1.0`, and watch GitHub Actions to success**.
 - [ ] **Step 5: Verify public state** with `gh repo view`, `gh run list`, junction inspection, tag inspection, and clean worktree; commit example result before merge with `git commit -m "release: prepare provisional Skyrim skill"`.
 
-### Task 9: Local Live Qualification
+### Task 9: Multi-Laptop Defect Discovery
 
 **Files:**
-- Modify: `qualification/state.json`, `docs/expertise/*`, qualification contracts/captures using sanitized text and hashes only.
-- Test: `tests/QualificationState.Tests.ps1`, `tests/Expertise.Tests.ps1`
+- Modify: `qualification/state.json`, `projects/anniversary-together/*`, sanitized production results.
+- Test: `tests/QualificationState.Tests.ps1`, `tests/ProjectSchemas.Tests.ps1`
 
 **Interfaces:**
-- Verifies `creation-kit`, `xedit`, and `papyrus-runtime` tracks against exact live schemas; no synthetic promotion.
+- Verifies `together-production` through stock controls on at least two independent laptops before any patch is designed.
 
-- [ ] **Step 1: Strengthen adversarial gate tests** so editable booleans, arbitrary bytes, stale logs, wrong runtime/tool versions, and missing captures remain blocked; verify RED against existing flawed paths.
-- [ ] **Step 2: Implement fail-closed validators and deterministic preparation tooling**, with bounded external processes and protected-input hashes after every phase.
-- [ ] **Step 3: Execute guided CK, xEdit, and Papyrus practicals** on disposable profiles; retain only sanitized metadata/hashes.
-- [ ] **Step 4: Run focused gates and independent domain review**; require all three tracks `verified` or keep Task 9 open.
-- [ ] **Step 5: Commit** with `git commit -m "test: qualify local Skyrim engineering workflows"`.
+- [ ] **Step 1: Inventory at least two laptops** with Task 4 tooling and require runtime, licensed content, load order, Skyrim Together build, and relevant tool parity before launch.
+- [ ] **Step 2: Run stock controls and the required host/client reproduction cases**, retaining only sanitized manifests, observations, hashes, and manually reviewed logs.
+- [ ] **Step 3: Classify each result** as pass, partial, host-only, desync, crash, blocked, or untested; omission is never success.
+- [ ] **Step 4: Diagnose demonstrated failures read-only**, including xEdit override-chain inspection where applicable; inspect upstream behavior and prior art before proposing a change.
+- [ ] **Step 5: Commit** with `git commit -m "test: record Anniversary Together production evidence"`.
 
-### Task 10: Multiplayer Qualification and V1 Release
+### Task 10: Conditional Patch Qualification and V1 Release
 
 **Files:**
-- Modify: `qualification/state.json`, `docs/expertise/assessment-results.md`, machine-readable assessment/review state.
-- Create: sanitized production test result under `projects/anniversary-together/results/`.
+- Modify only as demonstrated defects require: `qualification/state.json`, applicable CK/xEdit/Papyrus contracts and sanitized captures, machine-readable review state.
+- Create: deterministic release manifest derived from committed bytes.
 
 **Interfaces:**
-- Verifies `together-production`; produces every domain >=80%, overall >=90/100, two named independent PASS scopes, tag `v1.0.0`.
+- Qualifies only capabilities actually exercised by the release; produces two scoped independent PASS reviews, a deterministic release manifest, and tag `v1.0.0`.
 
-- [ ] **Step 1: Inventory two laptops with Task 4 tooling** and require runtime/content/load-order parity before launch.
-- [ ] **Step 2: Run server plus two independent clients**, reproduce a controlled inventory divergence/recovery across the real production process boundary, and retain sanitized logs/manifests.
-- [ ] **Step 3: Recompute assessment from atomic evidence**; require all domain thresholds, zero automatic blocks, deterministic committed-byte package, and consistent human/machine state.
-- [ ] **Step 4: Dispatch two fresh independent evidence reviewers** for data/CK/Papyrus and Together/runtime/build; resolve every Critical/Important finding and rerun all local/CI gates.
-- [ ] **Step 5: Complete final whole-branch review, push reviewed commits, tag/push `v1.0.0`, watch green CI, verify clean worktree and installed junction, and deliver exact V1 evidence.**
+- [ ] **Step 1: Decide from Task 9 evidence whether a patch is needed.** Prefer parity/configuration or upstream-supported behavior. If no patch is needed, do not run unrelated CK/Papyrus practicals merely to satisfy a score.
+- [ ] **Step 2: For each shipped change, qualify only its owning capability**: CK for plugin construction, xEdit create/save/reopen for record patches, Papyrus save migration for script-state changes, or a separate GPL-compatible Skyrim Together fork for an upstream-code defect.
+- [ ] **Step 3: Re-run affected stock and multiplayer cases** and require complete applicable evidence, zero unresolved Critical/Important findings, privacy/licensing gates, and a deterministic committed-byte release manifest.
+- [ ] **Step 4: Dispatch two fresh scoped reviewers**: one for multiplayer/evidence and one for release/privacy. Resolve every Critical/Important finding; numerical expertise percentages are informational, not gates.
+- [ ] **Step 5: Complete final whole-branch review, push reviewed commits, tag/push `v1.0.0`, watch green CI, verify clean worktree and installed junction, and deliver exact qualified scope and limitations.**
 
 ## Completion Rule
 
