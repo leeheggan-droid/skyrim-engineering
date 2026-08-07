@@ -14,11 +14,11 @@ Baseline: 2026-08-06. Use [xEdit 4.1.5f source](https://github.com/TES5Edit/TES5
 For the runtime-local FormID `0xFE123ABC`, decode the packed fields as unsigned values:
 
 ```powershell
-$runtimeId = [uint32]0xFE123ABC
+$runtimeId = [Convert]::ToUInt32('FE123ABC', 16)
 $prefix = ($runtimeId -shr 24) -band 0xFF       # 0xFE
 $lightIndex = ($runtimeId -shr 12) -band 0xFFF # 0x123
 $objectId = $runtimeId -band 0xFFF             # 0xABC
-$roundTrip = 0xFE000000 -bor ($lightIndex -shl 12) -bor $objectId # 0xFE123ABC
+$roundTrip = [uint32](0xFE000000L -bor ([int64]$lightIndex -shl 12) -bor $objectId) # 0xFE123ABC
 ```
 
 The masks and shifts decode and re-encode the runtime value without changing it. Here `0x123` means slot 291 only in that machine's resolved light-plugin load order, so `0xFE123ABC` is not a portable identity and may differ on another client.

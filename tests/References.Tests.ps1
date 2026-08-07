@@ -57,6 +57,27 @@ Describe 'Versioned Skyrim engineering references' {
         ) | ForEach-Object { $formIds | Should -Match ([regex]::Escape($_)) }
     }
 
+    It 'executes the documented light FormID round trip in Windows PowerShell 5.1' {
+        $formIds = Get-Content -Raw (Join-Path $referenceRoot 'plugins-and-formids.md')
+        $match = [regex]::Match(
+            $formIds,
+            '(?s)### Worked light-plugin runtime example.*?```powershell\r?\n(?<script>.*?)\r?\n```'
+        )
+        $match.Success | Should -BeTrue
+
+        $probePath = Join-Path $TestDrive 'documented-formid-roundtrip.ps1'
+        $probe = $match.Groups['script'].Value + @'
+
+if ($prefix -ne 0xFE -or $lightIndex -ne 0x123 -or $objectId -ne 0xABC -or $roundTrip -ne $runtimeId) {
+    throw 'Documented light FormID decode or round trip failed.'
+}
+'@
+        Set-Content -LiteralPath $probePath -Value $probe -Encoding UTF8
+
+        & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $probePath
+        $LASTEXITCODE | Should -Be 0
+    }
+
     It 'makes Anniversary Together patching evidence led and integration first' {
         $together = Get-Content -Raw (Join-Path $referenceRoot 'together-reborn.md')
         @('upstream behavior', 'prior art', 'reproduce before patch', 'GPL-3.0') |
