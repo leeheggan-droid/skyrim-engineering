@@ -7,12 +7,15 @@ Describe 'Creation Kit qualification capture contract' {
         $repoRoot = Split-Path -Parent $PSScriptRoot
         $captureScript = Join-Path $repoRoot 'tests\fixtures\ck\Test-CkCapture.ps1'
         $prepareScript = Join-Path $repoRoot 'tests\fixtures\ck\Prepare-CkQualification.ps1'
+        $script:ckTestRoots = [Collections.Generic.List[string]]::new()
 
         function Get-Hash([string]$Path) {
             (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash
         }
 
         function New-CkCase([string]$Root, [hashtable]$Mutation = @{}) {
+            $Root = Join-Path 'C:\tmp' ("seg-ck-test-{0}" -f [guid]::NewGuid().ToString('N'))
+            $script:ckTestRoots.Add($Root)
             New-Item -ItemType Directory -Path $Root -Force | Out-Null
             $seed = Join-Path $Root 'seed.esp'
             $plugin = Join-Path $Root 'SEG_CK_Practical3.esp'
@@ -52,8 +55,8 @@ exit /b 3
                 }
                 provenance = [ordered]@{
                     originalOnly = $true; licensedAssetsCommitted = $false
-                    generator = 'CreateOriginalFixture.pas'; reviewer = 'Independent Reviewer'
-                    reviewFinding = 'Original-only disposable CK round trip reviewed.'
+                    generator = 'CreateOriginalFixture.pas'; reviewerId = 'reviewer-ck-01'
+                    reviewFindingCode = 'original-only-reviewed'
                 }
                 masters = @('Skyrim.esm')
                 protectedInputs = @(
@@ -81,6 +84,14 @@ exit /b 3
         }
     }
 
+    AfterAll {
+        foreach ($root in $script:ckTestRoots) {
+            if ((Test-Path -LiteralPath $root) -and $root.StartsWith('C:\tmp\seg-ck-test-', [StringComparison]::OrdinalIgnoreCase)) {
+                Remove-Item -LiteralPath $root -Recurse -Force
+            }
+        }
+    }
+
     It 'emits a sanitized unverified capture bound to a complete reviewed CK round trip' {
         $case = New-CkCase (Join-Path $TestDrive 'valid')
         $messages = & pwsh -NoProfile -File $captureScript -Submission $case.Submission -CaptureOutput $case.Output 2>&1
@@ -91,7 +102,7 @@ exit /b 3
         $capture.result | Should -Be 'UNVERIFIED_SUBMISSION'
         $capture.records.stageObjective.stage | Should -Be 10
         $capture.records.condition.fieldPath | Should -Be 'INFO\Conditions\CTDA'
-        $capture.review.reviewer | Should -Be 'Independent Reviewer'
+        $capture.review.reviewerId | Should -Be 'reviewer-ck-01'
         (Get-Content -Raw -LiteralPath $case.Output) | Should -Not -Match ([regex]::Escape($TestDrive))
     }
 
@@ -118,7 +129,7 @@ exit /b 7
 
     It 'rejects stale, unreviewed, non-original, or non-reopened submissions' -ForEach @(
         @{ Name = 'stale'; Change = { param($s, $x) $s.capturedAtUtc = ([DateTime]::UtcNow.AddDays(-3)).ToString('o') } },
-        @{ Name = 'reviewer'; Change = { param($s, $x) $s.provenance.reviewer = '' } },
+        @{ Name = 'reviewer'; Change = { param($s, $x) $s.provenance.reviewerId = '' } },
         @{ Name = 'provenance'; Change = { param($s, $x) $s.provenance.originalOnly = $false } },
         @{ Name = 'reopen'; Change = { param($s, $x) $s.plugin.reopenConfirmed = $false } },
         @{ Name = 'version'; Change = { param($s, $x) $s.tools.creationKit.version = '1.0.0.0' } }
@@ -126,6 +137,27 @@ exit /b 7
         $case = New-CkCase (Join-Path $TestDrive $Name) @{ mutate = $Change }
         & pwsh -NoProfile -File $captureScript -Submission $case.Submission -CaptureOutput $case.Output 2>&1 | Out-Null
         $LASTEXITCODE | Should -Not -Be 0
+    }
+
+    It 'refuses an existing capture target without changing it' {
+        $case = New-CkCase 'ignored'
+        [IO.File]::WriteAllText($case.Output, 'DO-NOT-OVERWRITE')
+        & pwsh -NoProfile -File $captureScript -Submission $case.Submission -CaptureOutput $case.Output 2>&1 | Out-Null
+        $LASTEXITCODE | Should -Not -Be 0
+        (Get-Content -Raw -LiteralPath $case.Output) | Should -Be 'DO-NOT-OVERWRITE'
+    }
+
+    It 'rejects unsafe values instead of copying them into public capture output' -ForEach @(
+        @{ Name = 'path'; Change = { param($s, $x) $s.runId = 'C:\Users\Private\run' } },
+        @{ Name = 'steam'; Change = { param($s, $x) $s.provenance.reviewerId = '76561199012345678' } },
+        @{ Name = 'network'; Change = { param($s, $x) $s.masters = @('10.2.3.4.esm') } },
+        @{ Name = 'token'; Change = { param($s, $x) $s.structuredEvidence.quest.editorId = 'token=secret-value' } },
+        @{ Name = 'finding'; Change = { param($s, $x) $s.provenance.reviewFindingCode = 'Reviewed by Jane at C:\Users\Jane' } }
+    ) {
+        $case = New-CkCase 'ignored' @{ mutate = $Change }
+        & pwsh -NoProfile -File $captureScript -Submission $case.Submission -CaptureOutput $case.Output 2>&1 | Out-Null
+        $LASTEXITCODE | Should -Not -Be 0
+        $case.Output | Should -Not -Exist
     }
 
     It 'rejects changed seed/current plugin, master, INI, or tool bytes' -ForEach @(
@@ -141,11 +173,13 @@ exit /b 7
     }
 
     It 'prepares only a private runbook and unverified submission template' {
-        $root = Join-Path $TestDrive 'prepare'
+        $root = Join-Path 'C:\tmp' ("seg-ck-test-{0}" -f [guid]::NewGuid().ToString('N'))
+        $script:ckTestRoots.Add($root)
         New-Item -ItemType Directory -Path $root | Out-Null
         $ck = Join-Path $root 'CreationKit.exe'; [IO.File]::WriteAllBytes($ck, [byte[]](1))
         $xdump = Join-Path $root 'xDump64.exe'; [IO.File]::WriteAllBytes($xdump, [byte[]](2))
-        $prepared = Join-Path $root 'prepared'
+        $prepared = Join-Path 'C:\tmp' ("seg-ck-test-{0}" -f [guid]::NewGuid().ToString('N'))
+        $script:ckTestRoots.Add($prepared)
         & pwsh -NoProfile -File $prepareScript -RunRoot $prepared -CreationKit $ck -XDump64 $xdump
         $LASTEXITCODE | Should -Be 0
         $plan = Get-Content -Raw -LiteralPath (Join-Path $prepared 'ck-runbook.json') | ConvertFrom-Json
@@ -153,5 +187,47 @@ exit /b 7
         $plan.runtimeEvidenceCaptured | Should -BeFalse
         $plan.guiLaunchAuthorized | Should -BeFalse
         $plan.steps | Should -Contain 'Human: fully close Creation Kit, reopen the active plugin, inspect, save, and close.'
+    }
+
+    It 'refuses an existing preparation root without changing it' {
+        $tools = Join-Path 'C:\tmp' ("seg-ck-test-{0}" -f [guid]::NewGuid().ToString('N'))
+        $script:ckTestRoots.Add($tools)
+        New-Item -ItemType Directory -Path $tools | Out-Null
+        $ck = Join-Path $tools 'CreationKit.exe'; [IO.File]::WriteAllBytes($ck, [byte[]](1))
+        $xdump = Join-Path $tools 'xDump64.exe'; [IO.File]::WriteAllBytes($xdump, [byte[]](2))
+        $existing = Join-Path 'C:\tmp' ("seg-ck-test-{0}" -f [guid]::NewGuid().ToString('N'))
+        $script:ckTestRoots.Add($existing)
+        New-Item -ItemType Directory -Path $existing | Out-Null
+        [IO.File]::WriteAllText((Join-Path $existing 'sentinel.txt'), 'KEEP')
+        & pwsh -NoProfile -File $prepareScript -RunRoot $existing -CreationKit $ck -XDump64 $xdump 2>&1 | Out-Null
+        $LASTEXITCODE | Should -Not -Be 0
+        (Get-Content -Raw -LiteralPath (Join-Path $existing 'sentinel.txt')) | Should -Be 'KEEP'
+    }
+
+    It 'rejects a capture output below a reparse-point ancestor' {
+        $case = New-CkCase 'ignored'
+        $target = Join-Path 'C:\tmp' ("seg-ck-test-{0}" -f [guid]::NewGuid().ToString('N'))
+        $link = Join-Path 'C:\tmp' ("seg-ck-test-{0}-link" -f [guid]::NewGuid().ToString('N'))
+        $script:ckTestRoots.Add($target); $script:ckTestRoots.Add($link)
+        New-Item -ItemType Directory -Path $target | Out-Null
+        New-Item -ItemType Junction -Path $link -Target $target | Out-Null
+        $output = Join-Path $link 'capture.json'
+        & pwsh -NoProfile -File $captureScript -Submission $case.Submission -CaptureOutput $output 2>&1 | Out-Null
+        $LASTEXITCODE | Should -Not -Be 0
+        $output | Should -Not -Exist
+    }
+
+    It 'rejects a preparation root below a reparse-point ancestor' {
+        $tools = New-CkCase 'ignored'
+        $target = Join-Path 'C:\tmp' ("seg-ck-test-{0}" -f [guid]::NewGuid().ToString('N'))
+        $link = Join-Path 'C:\tmp' ("seg-ck-test-{0}-link" -f [guid]::NewGuid().ToString('N'))
+        $script:ckTestRoots.Add($target); $script:ckTestRoots.Add($link)
+        New-Item -ItemType Directory -Path $target | Out-Null
+        New-Item -ItemType Junction -Path $link -Target $target | Out-Null
+        $runRoot = Join-Path $link 'new-run'
+        $submission = Get-Content -Raw -LiteralPath $tools.Submission | ConvertFrom-Json
+        & pwsh -NoProfile -File $prepareScript -RunRoot $runRoot -CreationKit $submission.tools.creationKit.path -XDump64 $submission.tools.xDump64.path 2>&1 | Out-Null
+        $LASTEXITCODE | Should -Not -Be 0
+        $runRoot | Should -Not -Exist
     }
 }

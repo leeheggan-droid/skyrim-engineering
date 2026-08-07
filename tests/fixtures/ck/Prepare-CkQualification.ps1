@@ -8,15 +8,31 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-$resolvedRoot = [IO.Path]::GetFullPath($RunRoot)
-if (Test-Path -LiteralPath $resolvedRoot) {
-    if (@(Get-ChildItem -LiteralPath $resolvedRoot -Force).Count -gt 0) { throw 'RunRoot must be absent or empty.' }
-} else {
-    New-Item -ItemType Directory -Path $resolvedRoot | Out-Null
+function Assert-SafeNewRunRoot([string]$Path) {
+    if (-not [IO.Path]::IsPathFullyQualified($Path)) { throw 'RunRoot must be fully qualified.' }
+    $full = [IO.Path]::GetFullPath($Path)
+    if (-not $full.Equals($Path, [StringComparison]::OrdinalIgnoreCase)) { throw 'RunRoot must already be canonical.' }
+    $temp = [IO.Path]::GetFullPath('C:\tmp').TrimEnd('\')
+    if (-not $full.StartsWith($temp + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'RunRoot must be a C:\tmp descendant.' }
+    if (-not (Test-Path -LiteralPath $temp -PathType Container)) { throw 'C:\tmp is absent.' }
+    if (((Get-Item -LiteralPath $temp -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'C:\tmp is a reparse point.' }
+    if (Test-Path -LiteralPath $full) { throw 'RunRoot must not already exist.' }
+    $cursor = Split-Path -Parent $full
+    while ($cursor.StartsWith($temp + '\', [StringComparison]::OrdinalIgnoreCase)) {
+        if (Test-Path -LiteralPath $cursor) {
+            if (((Get-Item -LiteralPath $cursor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw 'RunRoot has a reparse-point ancestor.'
+            }
+        }
+        $cursor = Split-Path -Parent $cursor
+    }
+    $full
 }
+$resolvedRoot = Assert-SafeNewRunRoot $RunRoot
 foreach ($tool in @($CreationKit, $XDump64)) {
     if (-not (Test-Path -LiteralPath $tool -PathType Leaf)) { throw 'A required reviewed tool is absent.' }
 }
+New-Item -ItemType Directory -Path $resolvedRoot | Out-Null
 
 $plan = [ordered]@{
     schema = 'skyrim-engineering.qualification.creation-kit-preparation/v1'
@@ -40,5 +56,19 @@ $plan = [ordered]@{
         'Cleanup: delete only this named disposable run root after sanitized evidence is retained.'
     )
 }
-$plan | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $resolvedRoot 'ck-runbook.json') -Encoding UTF8
+$runbook = Join-Path $resolvedRoot 'ck-runbook.json'
+$json = $plan | ConvertTo-Json -Depth 8
+$createdRunbook = $false
+try {
+    $stream = [IO.File]::Open($runbook, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+    $createdRunbook = $true
+    try {
+        $writer = [IO.StreamWriter]::new($stream, [Text.UTF8Encoding]::new($false))
+        try { $writer.Write($json) } finally { $writer.Dispose() }
+    } finally { if ($stream) { $stream.Dispose() } }
+}
+catch {
+    if ($createdRunbook -and (Test-Path -LiteralPath $runbook)) { Remove-Item -LiteralPath $runbook -Force }
+    throw
+}
 'RESULT=PREPARED'

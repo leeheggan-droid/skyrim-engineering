@@ -13,8 +13,10 @@
   "requiredRelationships": ["actor-package", "quest-dialogue", "alias-quest", "cell-reference"],
   "requiredPhases": ["original-seed", "active-file-save", "full-close", "reopen-inspect-save-close", "xdump-check", "xdump-dump", "named-independent-review"],
   "requiredBindings": ["Creation Kit version/hash", "xDump version/hash", "seed/post-save/post-reopen plugin hashes", "master list and hashes", "Creation Kit INI hashes", "structured evidence to raw xDump hash"],
+  "pathBoundary": "RunRoot and CaptureOutput must be canonical fully qualified fresh descendants of non-reparse C:\\tmp; existing targets and any reparse ancestor are rejected.",
+  "publicOutputBoundary": "Capture output accepts only strict public-safe identifiers, anonymous reviewer IDs and enumerated finding codes; private paths, account IDs, addresses, tokens and arbitrary review text are rejected rather than copied.",
   "prepareCommand": "pwsh -File tests/fixtures/ck/Prepare-CkQualification.ps1 -RunRoot <empty-disposable-root> -CreationKit <CreationKit.exe> -XDump64 <xDump64.exe>",
   "captureCommand": "pwsh -File tests/fixtures/ck/Test-CkCapture.ps1 -Submission <private-submission.json> -CaptureOutput <sanitized-capture.json>",
-  "cleanupBoundary": "Delete only the named disposable run root after retaining sanitized metadata; never commit plugins, masters, INIs, executables, PEX, raw dumps, or private submission JSON.",
+  "cleanupBoundary": "Failure cleanup may delete only an output file demonstrably created by that invocation. Delete only the named disposable run root after retaining sanitized metadata; never commit plugins, masters, INIs, executables, PEX, raw dumps, or private submission JSON.",
   "provenance": "The historical Bethesda-derived replacement plugin is explicitly inadmissible. Only a fresh original-only human-operated CK round trip with named review may be submitted, and automated validation never marks it verified."
 }
