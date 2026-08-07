@@ -134,4 +134,23 @@ Describe 'Skyrim engineering common module' {
         $protected | Should -Not -Match ([regex]::Escape($apiKeySecret))
         $protected | Should -Match '\[REDACTED:token\]'
     }
+
+    It 'redacts cross-platform paths network identities and standalone bearer-shaped secrets' {
+        Import-Module -Force $modulePath
+        $linuxPath = '/ho' + 'me/alice/.config/skyrim/log.txt'
+        $uncPath = '\\' + '\\workstation-07\Users\alice\Documents\crash.log'
+        $genericWindowsPath = 'D:' + '\\Games\\Profiles\\alice\\session.log'
+        $ipv6 = '2001:' + 'db8:85a3::8a2e:370:7334'
+        $email = 'alice' + '@example.test'
+        $privateHostname = 'private-host' + '.example.test'
+        $jwt = @('eyJhbGciOiJIUzI1NiJ9', 'eyJzdWIiOiIxMjM0NTY3ODkwIn0', 'signature_material_123') -join '.'
+        $input = "$linuxPath $uncPath $genericWindowsPath $ipv6 $email $privateHostname $jwt requestId=req-private-987"
+
+        $protected = Protect-DiagnosticText -Text $input
+
+        @($linuxPath, $uncPath, $genericWindowsPath, $ipv6, $email, $privateHostname, $jwt, 'req-private-987') |
+            ForEach-Object { $protected | Should -Not -Match ([regex]::Escape($_)) }
+        @('path', 'ipv6', 'email', 'hostname', 'token', 'identifier') |
+            ForEach-Object { $protected | Should -Match ("\[REDACTED:{0}\]" -f $_) }
+    }
 }

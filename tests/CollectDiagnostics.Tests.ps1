@@ -146,4 +146,20 @@ Describe 'collect-diagnostics' {
             (Get-FileHash -LiteralPath $outputFile -Algorithm SHA256).Hash.ToLowerInvariant() | Should -Be $entry.sha256
         }
     }
+
+    It 'sanitizes sensitive filenames as well as their content' {
+        $sourceRoot = Join-Path $TestDrive 'sensitive-name-source'
+        $outputRoot = Join-Path $TestDrive 'sensitive-name-output'
+        $null = New-Item -ItemType Directory -Path $sourceRoot -Force
+        $privateName = ('alice' + '@example.test.log')
+        $privateContent = '/ho' + 'me/alice/private.log'
+        [System.IO.File]::WriteAllText((Join-Path $sourceRoot $privateName), $privateContent)
+
+        & $collectorPath -InputPath $sourceRoot -OutputDirectory $outputRoot
+
+        $manifestText = Get-Content -LiteralPath (Join-Path $outputRoot 'diagnostic-manifest.json') -Raw
+        $manifestText | Should -Not -Match ([regex]::Escape('alice@example.test'))
+        $manifestText | Should -Match 'REDACTED-email'
+        @(Get-ChildItem -LiteralPath $outputRoot -File).Name | Should -Not -Contain $privateName
+    }
 }

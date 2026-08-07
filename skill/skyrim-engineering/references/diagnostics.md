@@ -15,6 +15,18 @@ Use [Microsoft's WinDbg documentation](https://learn.microsoft.com/windows-hardw
 
 Papyrus compile failures and VM runtime errors are different surfaces. Preserve compiler command/imports for compile issues; for runtime issues, use a disposable save and the smallest script/event transition. Do not commit `.pex`, saves, raw logs, or dumps.
 
+Sanitization is a risk-reduction pass, not a publication guarantee. The collector
+redacts common personal paths, network identities, credentials, identifiers, and
+sensitive filenames, but novel formats can survive automated rules. Before
+sharing or committing a bundle, manually inspect every output file and the
+generated manifest; keep the original evidence private.
+
+Run diagnostics tests with the exact supported runner and propagate failures:
+
+```powershell
+pwsh -NoProfile -Command "Import-Module Pester -RequiredVersion 5.9.0 -Force; `$r = Invoke-Pester tests/Common.Tests.ps1,tests/CollectDiagnostics.Tests.ps1 -Output Detailed -PassThru; if (`$r.FailedCount -gt 0) { exit 1 }"
+```
+
 ## Minimum public evidence
 
 - relative component/plugin identifiers and exact versions;
