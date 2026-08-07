@@ -4,7 +4,7 @@
     "operation": "verifiedPackageIntake",
     "componentMutation": false,
     "mutationStatus": "deferredPendingNativeWindowsHandleRelativeWriterAndOsProtectedJournal",
-    "allowedArchiveTypes": ["7z"],
+    "verifiedArchiveTypes": ["7z"],
     "networkAccess": false,
     "executePayloads": false,
     "archiveTool": {
@@ -31,7 +31,7 @@
       "publisher": "SKSE Team",
       "provenanceUrl": "https://skse.silverlock.org/beta/skse64_2_02_06.7z",
       "license": "SKSE custom non-commercial licence",
-      "approved": true,
+      "intakeVerified": true,
       "free": true,
       "mappings": [
         {

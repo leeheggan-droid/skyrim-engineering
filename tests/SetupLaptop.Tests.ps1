@@ -21,7 +21,6 @@ Describe 'setup-laptop provisional read-only bootstrap' {
                 ProfileRoot = $ProfileRoot
                 CanonicalManifest = $Manifest
                 StateDirectory = $StateDirectory
-                Confirm = $false
             }
             $arguments[$Mode] = $true
             if (-not [string]::IsNullOrWhiteSpace($ToolRoot)) { $arguments.ToolRoot = $ToolRoot }
@@ -39,19 +38,15 @@ Describe 'setup-laptop provisional read-only bootstrap' {
 
         function Invoke-LaptopSetupProcess {
             param(
-                [Parameter(Mandatory = $true)][ValidateSet('Apply', 'Rollback')][string]$Mode,
-                [switch]$ConfirmApply,
-                [switch]$WhatIf
+                [Parameter(Mandatory = $true)][ValidateSet('Apply', 'Rollback')][string]$Mode
             )
             $arguments = @(
                 '-NoProfile', '-File', $script:setupScript, ('-' + $Mode),
-                '-ClientId', 'client-a', '-GameRoot', $script:gameRoot,
-                '-ProfileRoot', $script:profileRoot, '-CanonicalManifest', $script:canonical,
-                '-StateDirectory', $script:stateRoot, '-Confirm:$false'
+                '-ClientId', 'client-a', '-GameRoot', '.\hostile-relative-game',
+                '-ProfileRoot', (Join-Path $script:caseRoot 'missing-profile'),
+                '-CanonicalManifest', (Join-Path $script:caseRoot 'missing-manifest.json'),
+                '-StateDirectory', '\\hostile.invalid\missing-state'
             )
-            if ($Mode -eq 'Apply') { $arguments += @('-PackageCache', $script:packageCache) }
-            if ($ConfirmApply) { $arguments += '-ConfirmApply' }
-            if ($WhatIf) { $arguments += '-WhatIf' }
             $output = @(& (Get-Command pwsh).Source @arguments 2>&1 | ForEach-Object { $_.ToString() })
             return [pscustomobject]@{ exitCode = $LASTEXITCODE; output = ($output -join "`n") }
         }
@@ -62,15 +57,34 @@ Describe 'setup-laptop provisional read-only bootstrap' {
         $script:gameRoot = Join-Path $caseRoot 'Game'
         $script:profileRoot = Join-Path $caseRoot 'Profiles'
         $script:stateRoot = Join-Path $caseRoot 'State'
-        $script:packageCache = Join-Path $caseRoot 'PackageCache'
         $script:toolRoot = Join-Path $caseRoot 'Tools'
-        New-Item -ItemType Directory -Path $gameRoot, $profileRoot, $stateRoot, $packageCache, $toolRoot -Force | Out-Null
+        New-Item -ItemType Directory -Path $gameRoot, $profileRoot, $stateRoot, $toolRoot -Force | Out-Null
     }
 
     It 'requires exactly one explicit mode and an anonymous client id' {
         { & $setupScript -ClientId client-a -GameRoot $gameRoot -ProfileRoot $profileRoot -CanonicalManifest $canonical -StateDirectory $stateRoot } | Should -Throw
         { & $setupScript -AuditOnly -Plan -ClientId client-a -GameRoot $gameRoot -ProfileRoot $profileRoot -CanonicalManifest $canonical -StateDirectory $stateRoot } | Should -Throw
         { & $setupScript -AuditOnly -ClientId 'named-laptop' -GameRoot $gameRoot -ProfileRoot $profileRoot -CanonicalManifest $canonical -StateDirectory $stateRoot } | Should -Throw
+    }
+
+    It 'contains no component mutation engine or mutation-only parameter surface' {
+        $source = Get-Content -LiteralPath $setupScript -Raw
+
+        $source | Should -Not -Match '(?im)^\s*(?:Remove|Copy|Move)-Item\b|\bExpand-Archive\b|\bStart-Process\b|\bInvoke-Expression\b'
+        $source | Should -Not -Match '(?i)\[IO\.(?:File|Directory)\]::(?:Copy|Move|Delete|CreateDirectory|WriteAllBytes|WriteAllText|Replace|Open)\b'
+        $source | Should -Not -Match '(?i)function\s+(?:Initialize-PhysicalIdentityApi|Get-PhysicalRootAnchor|Open-PhysicalRootAnchor|Open-DirectoryLease|Get-FilePhysicalIdentity|Get-DirectoryPhysicalIdentity|Invoke-GuardedFileMove|Invoke-GuardedDirectoryMove|Get-ExpectedMutations|Write-BytesExclusively|Write-StateAtomic|Get-PreflightOwnershipSha256|Assert-SourcePackage|Assert-ArchiveTool|Assert-NoReparseTree|Assert-Official7zLayout|Test-QualificationInterrupt|Remove-OwnedStage|Get-MutationPath|Set-MutationPreflight|New-GuardedDirectory|Invoke-ApplyTransaction|Assert-JournalAllowlist|Move-Verify-DeleteFile|Invoke-RollbackTransaction)\b'
+        $source | Should -Not -Match '(?i)\$(?:PackageCache|ArchiveToolPath|ConfirmApply|InterruptAfter|InterruptMutationIndex)\b|skyrim-engineering\.laptop-state/v1|approved7zInstall|\$script:PhysicalRootAnchors'
+        $source | Should -Not -Match '(?im)^\s*&\s+\$|\.ShouldProcess\('
+    }
+
+    It 'describes package provenance as verified intake evidence rather than install approval' {
+        $catalogPath = Join-Path $PSScriptRoot '..\skill\skyrim-engineering\references\laptop-package-catalog.json'
+        $rawCatalog = Get-Content -LiteralPath $catalogPath -Raw
+        $catalog = $rawCatalog | ConvertFrom-Json
+
+        @($catalog.policy.verifiedArchiveTypes) | Should -Be @('7z')
+        $catalog.packages[0].intakeVerified | Should -BeTrue
+        $rawCatalog | Should -Not -Match '"approved"\s*:|allowedArchiveTypes|approved 7z|installApproved'
     }
 
     It 'emits deterministic sanitized audit categories and all difference types' {
@@ -124,19 +138,15 @@ Describe 'setup-laptop provisional read-only bootstrap' {
         (Get-CaseTreeSnapshot $caseRoot) | Should -BeExactly $before
     }
 
-    It 'fails closed with zero mutation and an actionable deferred schema' -ForEach @(
-        @{ mode = 'Apply'; confirmApply = $false; whatIf = $false },
-        @{ mode = 'Apply'; confirmApply = $true; whatIf = $false },
-        @{ mode = 'Apply'; confirmApply = $true; whatIf = $true },
-        @{ mode = 'Rollback'; confirmApply = $false; whatIf = $false },
-        @{ mode = 'Rollback'; confirmApply = $false; whatIf = $true }
+    It 'fails closed before validating or traversing hostile nonexistent roots' -ForEach @(
+        @{ mode = 'Apply' },
+        @{ mode = 'Rollback' }
     ) {
         Set-Content -LiteralPath (Join-Path $gameRoot 'game-canary.txt') -Value 'game-owned' -NoNewline
         Set-Content -LiteralPath (Join-Path $profileRoot 'profile-canary.txt') -Value 'profile-owned' -NoNewline
-        if ($mode -eq 'Rollback') { Set-Content -LiteralPath (Join-Path $stateRoot 'client-a.state.json') -Value '{"sentinel":true}' -NoNewline }
         $before = Get-CaseTreeSnapshot $caseRoot
 
-        $result = Invoke-LaptopSetupProcess -Mode $mode -ConfirmApply:$confirmApply -WhatIf:$whatIf
+        $result = Invoke-LaptopSetupProcess -Mode $mode
 
         $result.exitCode | Should -Not -Be 0
         $result.output | Should -Match '"schema":"skyrim-engineering\.laptop-deferred/v1"'
