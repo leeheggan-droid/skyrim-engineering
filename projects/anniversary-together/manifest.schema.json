@@ -3,7 +3,7 @@
   "$id": "https://skyrim-engineering.example/schemas/anniversary-together-manifest-v1.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "privateClientSlots", "canonicalCreationManifest", "participants", "parityReconciliation", "results"],
+  "required": ["schema", "privateClientSlots", "canonicalCreationManifest", "participants", "parityReconciliation", "publicationStatus", "results"],
   "properties": {
     "schema": {"const": "skyrim-engineering.anniversary-together.manifest/v1"},
     "privateClientSlots": {"type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true, "items": {"enum": ["slot-1", "slot-2", "slot-3"]}},
@@ -23,9 +23,10 @@
       "properties": {
         "comparisonReports": {"type": "array", "minItems": 3, "maxItems": 3, "prefixItems": [{"$ref": "#/$defs/comparisonHost"}, {"$ref": "#/$defs/comparisonClientA"}, {"$ref": "#/$defs/comparisonClientB"}], "items": false},
         "allMatched": {"type": "boolean"},
-        "mismatchDisposition": {"const": "blocked-read-only"}
+        "mismatchDisposition": {"enum": ["ready", "blocked-read-only"]}
       }
     },
+    "publicationStatus": {"enum": ["eligible-for-live-record", "provisional-blocked"]},
     "results": {
       "type": "array", "minItems": 13, "maxItems": 13,
       "prefixItems": [
@@ -33,11 +34,27 @@
       ], "items": false
     }
   },
+  "allOf": [
+    {
+      "if": {"properties": {"parityReconciliation": {"properties": {"allMatched": {"const": true}}}}},
+      "then": {
+        "properties": {
+          "parityReconciliation": {"properties": {"mismatchDisposition": {"const": "ready"}}},
+          "publicationStatus": {"const": "eligible-for-live-record"}
+        }
+      },
+      "else": {
+        "properties": {
+          "parityReconciliation": {"properties": {"mismatchDisposition": {"const": "blocked-read-only"}}},
+          "publicationStatus": {"const": "provisional-blocked"}
+        }
+      }
+    }
+  ],
   "$defs": {
-    "participantBase": {"type": "object", "additionalProperties": false, "required": ["publicId", "role", "privateSlot"]},
-    "host": {"allOf": [{"$ref": "#/$defs/participantBase"}, {"properties": {"publicId": {"const": "host"}, "role": {"const": "host"}, "privateSlot": {"const": "slot-1"}}}]},
-    "clientA": {"allOf": [{"$ref": "#/$defs/participantBase"}, {"properties": {"publicId": {"const": "client-a"}, "role": {"const": "client"}, "privateSlot": {"const": "slot-2"}}}]},
-    "clientB": {"allOf": [{"$ref": "#/$defs/participantBase"}, {"properties": {"publicId": {"const": "client-b"}, "role": {"const": "client"}, "privateSlot": {"const": "slot-3"}}}]},
+    "host": {"type": "object", "additionalProperties": false, "required": ["publicId", "role", "privateSlot"], "properties": {"publicId": {"const": "host"}, "role": {"const": "host"}, "privateSlot": {"const": "slot-1"}}},
+    "clientA": {"type": "object", "additionalProperties": false, "required": ["publicId", "role", "privateSlot"], "properties": {"publicId": {"const": "client-a"}, "role": {"const": "client"}, "privateSlot": {"const": "slot-2"}}},
+    "clientB": {"type": "object", "additionalProperties": false, "required": ["publicId", "role", "privateSlot"], "properties": {"publicId": {"const": "client-b"}, "role": {"const": "client"}, "privateSlot": {"const": "slot-3"}}},
     "comparisonBase": {"type": "object", "additionalProperties": false, "required": ["participant", "path", "sha256"], "properties": {"participant": {"type": "string"}, "path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}},
     "comparisonHost": {"allOf": [{"$ref": "#/$defs/comparisonBase"}, {"properties": {"participant": {"const": "host"}, "path": {"const": "manifests-private/host-comparison.json"}}}]},
     "comparisonClientA": {"allOf": [{"$ref": "#/$defs/comparisonBase"}, {"properties": {"participant": {"const": "client-a"}, "path": {"const": "manifests-private/client-a-comparison.json"}}}]},

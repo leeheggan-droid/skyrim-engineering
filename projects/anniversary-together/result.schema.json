@@ -37,9 +37,13 @@
       "type": "array", "minItems": 1,
       "items": {
         "type": "object", "additionalProperties": false,
-        "required": ["creationId", "assessment", "basis"],
+        "required": ["creationId", "pluginFilename", "sha256", "pluginType", "internalFlag", "assessment", "basis"],
         "properties": {
           "creationId": {"type": "string", "pattern": "^[A-Za-z0-9_-]+$"},
+          "pluginFilename": {"type": "string", "pattern": "^[A-Za-z0-9_-]+\\.(esm|esl|esp)$"},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "pluginType": {"enum": ["esm", "esl", "esp"]},
+          "internalFlag": {"enum": ["notInspected", "master", "light", "standard"]},
           "assessment": {"enum": ["implicated", "not-implicated", "unknown"]},
           "basis": {"type": "string", "minLength": 1}
         }
@@ -59,6 +63,14 @@
   "allOf": [
     {
       "if": {"properties": {"testId": {"pattern": "^SYNC-"}}, "required": ["testId"]},
+      "then": {"properties": {"participants": {"minItems": 3, "maxItems": 3, "contains": {"const": "host"}}}}
+    },
+    {
+      "if": {"properties": {"testId": {"const": "CONTROL-002"}}, "required": ["testId"]},
+      "then": {"properties": {"participants": {"minItems": 3, "maxItems": 3, "contains": {"const": "host"}}}}
+    },
+    {
+      "if": {"properties": {"testId": {"const": "AE-001"}}, "required": ["testId"]},
       "then": {"properties": {"participants": {"minItems": 3, "maxItems": 3, "contains": {"const": "host"}}}}
     }
   ]
