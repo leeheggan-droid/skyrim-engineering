@@ -44,6 +44,40 @@ The installer creates and verifies only this junction:
 It refuses to replace a real directory, a junction pointing elsewhere, or a
 path reached through a reparse-point ancestor.
 
+## Set up the second laptop
+
+Use this exact stop-and-handoff sequence before changing its mod setup:
+
+1. Install the Steam edition of Skyrim Special Edition plus the Anniversary
+   Upgrade and allow the owned 2021 Anniversary Creations to finish downloading.
+2. Launch Skyrim once through Steam, reach the main menu, then exit normally.
+   This establishes the stock installation and user configuration for audit.
+3. Install Git and Codex from their official distribution channels, open a new
+   PowerShell terminal, and clone this repository:
+
+   ```powershell
+   New-Item -ItemType Directory -Path 'C:\repos' -Force | Out-Null
+   Set-Location 'C:\repos'
+   git clone https://github.com/leeheggan-droid/skyrim-engineering.git
+   Set-Location '.\skyrim-engineering'
+   ```
+
+4. Install the Codex skill junction from that stable checkout:
+
+   ```powershell
+   & .\skill\skyrim-engineering\scripts\install-skill.ps1 `
+     -RepositoryRoot (Get-Location).Path
+   ```
+
+5. Stop and report **`laptop ready`**. The first read-only audit will assign
+   this machine the public identifier `client-b` and compare it with the
+   canonical laptop before any multiplayer component is installed.
+
+Until that audit is complete, do not newly install SKSE, Address Library,
+Skyrim Together, MO2, Wabbajack, or copy a profile/save from another machine.
+Do not remove add-ons or tools that were already present; the audit must observe
+and classify existing state without destroying it.
+
 ## Inspect a laptop
 
 The provisional laptop helper is deliberately read-only. Choose exactly one
