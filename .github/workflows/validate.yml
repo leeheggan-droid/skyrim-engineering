@@ -52,6 +52,7 @@ jobs:
           $config.Run.Path = 'tests'
           $config.Run.Exit = $true
           $config.Output.Verbosity = 'Detailed'
+          $config.Output.RenderMode = 'Plaintext'
           $config.TestResult.Enabled = $true
           $config.TestResult.OutputFormat = 'NUnitXml'
           $config.TestResult.OutputPath = 'TestResults/Pester.xml'

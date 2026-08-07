@@ -147,13 +147,14 @@ Describe 'setup-laptop provisional read-only bootstrap' {
         $before = Get-CaseTreeSnapshot $caseRoot
 
         $result = Invoke-LaptopSetupProcess -Mode $mode
+        $output = (($result.output -join "`n") -replace "`e\[[0-?]*[ -/]*[@-~]", '')
 
         $result.exitCode | Should -Not -Be 0
-        $result.output | Should -Match '"schema":"skyrim-engineering\.laptop-deferred/v1"'
-        $result.output | Should -Match ('"mode":"' + $mode + '"')
-        $result.output | Should -Match 'native Windows handle-relative writer'
-        $result.output | Should -Match 'OS-protected journal'
-        $result.output | Should -Match 'AuditOnly.*Plan.*Verify'
+        $output | Should -Match '"schema":"skyrim-engineering\.laptop-deferred/v1"'
+        $output | Should -Match ('"mode":"' + $mode + '"')
+        $output | Should -Match 'native\s+Windows\s+handle-relative\s+writer'
+        $output | Should -Match 'OS-protected\s+journal'
+        $output | Should -Match 'AuditOnly.*Plan.*Verify'
         (Get-CaseTreeSnapshot $caseRoot) | Should -BeExactly $before
     }
 

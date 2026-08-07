@@ -15,5 +15,6 @@ Describe 'Repository foundation' {
         $workflow | Should -Match 'Pester.*5\.9\.0|RequiredVersion\s+5\.9\.0'
         $workflow | Should -Match 'python\s+\.github/scripts/quick_validate\.py\s+skill/skyrim-engineering'
         '.github/scripts/quick_validate.py' | Should -Exist
+        $workflow | Should -Match "RenderMode\s*=\s*'Plaintext'"
     }
 }

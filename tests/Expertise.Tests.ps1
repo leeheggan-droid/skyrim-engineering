@@ -9,6 +9,7 @@ Describe 'Step zero expertise evidence integrity' {
         $assessment = Get-Content -Raw (Join-Path $evidenceRoot 'assessment.json') | ConvertFrom-Json
         $reviews = Get-Content -Raw (Join-Path $evidenceRoot 'review-state.json') | ConvertFrom-Json
         $release = Get-Content -Raw (Join-Path $evidenceRoot 'release-state.json') | ConvertFrom-Json
+        $runLiveQualification = $env:SKYRIM_ENGINEERING_LIVE_QUALIFICATION -eq '1'
     }
 
     It 'has the required evidence documents and machine-readable state' {
@@ -27,6 +28,15 @@ Describe 'Step zero expertise evidence integrity' {
             'tests/fixtures/evidence/release-state.json'
             'tests/fixtures/evidence/gate-requirements.json'
         ) | ForEach-Object { Join-Path $repoRoot $_ | Should -Exist }
+    }
+
+    It 'keeps host-bound qualification evidence outside the provisional CI gate' {
+        $source = Get-Content -Raw -LiteralPath $PSCommandPath
+        $source | Should -Match 'SKYRIM_ENGINEERING_LIVE_QUALIFICATION'
+        $source | Should -Match 'Set-ItResult\s+-Skipped'
+        $qualification = Get-Content -Raw (Join-Path $repoRoot 'qualification\state.json') | ConvertFrom-Json
+        $qualification.provisionalReleaseBlocked | Should -BeFalse
+        $qualification.qualifiedReleaseBlocked | Should -BeTrue
     }
 
     It 'derives every domain score and status from atomic rubric items' {
@@ -66,6 +76,10 @@ Describe 'Step zero expertise evidence integrity' {
     }
 
     It 'verifies every frozen artefact hash instead of trusting prose' {
+        if (-not $runLiveQualification) {
+            Set-ItResult -Skipped -Because 'live qualification requires SKYRIM_ENGINEERING_LIVE_QUALIFICATION=1'
+            return
+        }
         $manifest = Get-Content -Raw (Join-Path $evidenceRoot 'artifacts.json') | ConvertFrom-Json
         $manifest.algorithm | Should -Be 'SHA256'
         $manifest.artifacts.Count | Should -BeGreaterThan 0
@@ -77,6 +91,10 @@ Describe 'Step zero expertise evidence integrity' {
     }
 
     It 'executes the substantive portable fixture checks' {
+        if (-not $runLiveQualification) {
+            Set-ItResult -Skipped -Because 'live qualification requires SKYRIM_ENGINEERING_LIVE_QUALIFICATION=1'
+            return
+        }
         $pwsh = (Get-Process -Id $PID).Path
         foreach ($script in @(
             'tests\fixtures\data-model\Test-DataModelCases.ps1'
@@ -103,6 +121,10 @@ Describe 'Step zero expertise evidence integrity' {
     }
 
     It 'derives source, practical and review state from pinned machine-readable evidence' {
+        if (-not $runLiveQualification) {
+            Set-ItResult -Skipped -Because 'live qualification requires SKYRIM_ENGINEERING_LIVE_QUALIFICATION=1'
+            return
+        }
         $requirements = Get-Content -Raw (Join-Path $evidenceRoot 'gate-requirements.json') | ConvertFrom-Json
         @($requirements.primarySources | Where-Object domain -eq 'papyrus').Count | Should -BeGreaterOrEqual $requirements.sourceMinimums.papyrus
         foreach($source in $requirements.primarySources){ $source.publisher | Should -Not -BeNullOrEmpty; $source.version | Should -Not -BeNullOrEmpty; $source.sha256 | Should -Match '^[A-F0-9]{64}$' }
