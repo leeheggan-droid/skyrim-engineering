@@ -78,6 +78,8 @@ differences afterward if launch or cross-machine parity fails.
 
 ## Install the standard Skyrim Together Reborn stack
 
+Current hands-on setup checkpoint: [Client A setup checkpoint — 2026-08-07](docs/checkpoints/2026-08-07-client-a-setup.md).
+
 Use the official Skyrim Together Reborn MO2 route on each laptop immediately
 after the one-time stock Skyrim launch:
 
