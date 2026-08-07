@@ -44,10 +44,23 @@ try {
     $v2Pex = Join-Path $buildV2 'SEG_RuntimeMigration.pex'
     [IO.File]::WriteAllBytes($v1Pex, [byte[]](1, 3, 3, 7))
     [IO.File]::WriteAllBytes($v2Pex, [byte[]](2, 4, 6, 8, 10))
+    $plugin = Join-Path $testRoot 'SEG_RuntimeMigration.esp'
+    [IO.File]::WriteAllBytes($plugin, [Text.Encoding]::ASCII.GetBytes('TES4-original-fixture'))
+    $pluginEvidence = Join-Path $testRoot 'plugin-evidence.json'
+    [ordered]@{ originalOnly=$true; pluginSha256=(Get-FileHash $plugin -Algorithm SHA256).Hash; questFormId='0x00000800'; scriptName='SEG_RuntimeMigration'; attachment='Quest'; activation='start-game-enabled' } |
+        ConvertTo-Json | Set-Content -LiteralPath $pluginEvidence -Encoding UTF8
+    $compilerEvidence = Join-Path $testRoot 'compiler-evidence.json'
+    [ordered]@{ compilerSha256=('A'*64); commandSha256=('B'*64); versions=[ordered]@{
+        V1=[ordered]@{sourceSha256=(Get-FileHash (Join-Path $papyrusRoot 'runtime-v1\SEG_RuntimeMigration.psc') -Algorithm SHA256).Hash;pexSha256=(Get-FileHash $v1Pex -Algorithm SHA256).Hash}
+        V2=[ordered]@{sourceSha256=(Get-FileHash (Join-Path $papyrusRoot 'runtime-v2\SEG_RuntimeMigration.psc') -Algorithm SHA256).Hash;pexSha256=(Get-FileHash $v2Pex -Algorithm SHA256).Hash}
+    }} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $compilerEvidence -Encoding UTF8
     $stagingRoot = Join-Path $testRoot 'runtime-stage'
     $result = Invoke-Child $stageScript @(
         '-V1Pex', $v1Pex,
         '-V2Pex', $v2Pex,
+        '-Plugin', $plugin,
+        '-PluginEvidence', $pluginEvidence,
+        '-CompilerEvidence', $compilerEvidence,
         '-StagingRoot', $stagingRoot
     )
     Assert-True ($result.ExitCode -eq 0) "Papyrus preparation failed: $($result.Output)"
@@ -56,16 +69,19 @@ try {
     $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
     Assert-True ($manifest.status -eq 'PREPARED') 'manifest status must remain PREPARED, not runtime PASS'
     Assert-True ($manifest.runtimeEvidenceCaptured -eq $false) 'preparation must not claim runtime evidence'
-    Assert-True ($manifest.versions.V1.sha256 -eq (Get-FileHash -Algorithm SHA256 -LiteralPath $v1Pex).Hash) 'V1 hash is not bound to input bytes'
-    Assert-True ($manifest.versions.V2.sha256 -eq (Get-FileHash -Algorithm SHA256 -LiteralPath $v2Pex).Hash) 'V2 hash is not bound to input bytes'
-    Assert-True ($manifest.versions.V1.sha256 -ne $manifest.versions.V2.sha256) 'version PEX hashes must differ'
-    Assert-True ((Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stagingRoot $manifest.versions.V1.relativePath)).Hash -eq $manifest.versions.V1.sha256) 'staged V1 bytes differ from manifest'
-    Assert-True ((Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stagingRoot $manifest.versions.V2.relativePath)).Hash -eq $manifest.versions.V2.sha256) 'staged V2 bytes differ from manifest'
+    Assert-True ($manifest.versions.V1.pexSha256 -eq (Get-FileHash -Algorithm SHA256 -LiteralPath $v1Pex).Hash) 'V1 hash is not bound to input bytes'
+    Assert-True ($manifest.versions.V2.pexSha256 -eq (Get-FileHash -Algorithm SHA256 -LiteralPath $v2Pex).Hash) 'V2 hash is not bound to input bytes'
+    Assert-True ($manifest.versions.V1.pexSha256 -ne $manifest.versions.V2.pexSha256) 'version PEX hashes must differ'
+    Assert-True ((Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stagingRoot $manifest.versions.V1.relativePath)).Hash -eq $manifest.versions.V1.pexSha256) 'staged V1 bytes differ from manifest'
+    Assert-True ((Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stagingRoot $manifest.versions.V2.relativePath)).Hash -eq $manifest.versions.V2.pexSha256) 'staged V2 bytes differ from manifest'
 
     $sameStage = Join-Path $testRoot 'same-version-stage'
     $result = Invoke-Child $stageScript @(
         '-V1Pex', $v1Pex,
         '-V2Pex', $v1Pex,
+        '-Plugin', $plugin,
+        '-PluginEvidence', $pluginEvidence,
+        '-CompilerEvidence', $compilerEvidence,
         '-StagingRoot', $sameStage
     )
     Assert-True ($result.ExitCode -ne 0) 'preparation accepted byte-identical V1/V2 PEX inputs'
@@ -78,9 +94,14 @@ try {
     $saveBefore = Join-Path $testRoot 'save-before.ess'
     $saveAfter = Join-Path $testRoot 'save-after.ess'
     [IO.File]::WriteAllText($v1Log, "SEG_EVENT_OK schema=1`r`nSEG_MIGRATION_OLD schema=1`r`n")
-    [IO.File]::WriteAllText($v2Log, "SEG_MIGRATION_NEW from=1 to=2`r`n")
-    [IO.File]::WriteAllBytes($saveBefore, [byte[]](11, 12, 13))
-    [IO.File]::WriteAllBytes($saveAfter, [byte[]](21, 22, 23, 24))
+    [IO.File]::WriteAllText($v2Log, "SEG_EVENT_OK schema=2`r`nSEG_MIGRATION_NEW from=1 to=2`r`n")
+    $essBefore = New-Object byte[] (1024*1024); [Text.Encoding]::ASCII.GetBytes('TESV_SAVEGAME').CopyTo($essBefore,0); $essBefore[-1]=1; [IO.File]::WriteAllBytes($saveBefore,$essBefore)
+    $essAfter = New-Object byte[] (1024*1024); [Text.Encoding]::ASCII.GetBytes('TESV_SAVEGAME').CopyTo($essAfter,0); $essAfter[-1]=2; [IO.File]::WriteAllBytes($saveAfter,$essAfter)
+    $v1Phase=[datetime]::UtcNow.AddMinutes(-4); $v2Phase=[datetime]::UtcNow.AddMinutes(-2)
+    (Get-Item $v1Log).LastWriteTimeUtc=$v1Phase.AddSeconds(10); (Get-Item $saveBefore).LastWriteTimeUtc=$v1Phase.AddSeconds(20)
+    (Get-Item $v2Log).LastWriteTimeUtc=$v2Phase.AddSeconds(10); (Get-Item $saveAfter).LastWriteTimeUtc=$v2Phase.AddSeconds(20)
+    $runtimeEvidence=Join-Path $testRoot 'runtime.json'; [ordered]@{runtimeVersion='1.6.1170.0';executableSha256=('C'*64)}|ConvertTo-Json|Set-Content $runtimeEvidence
+    $profileEvidence=Join-Path $testRoot 'profile.json'; [ordered]@{anonymousProfileId='profile-test-01';profileIsolated=$true;liveDataModified=$false;bEnableLogging=$true;bEnableTrace=$true;loadOrder=@('Skyrim.esm','SEG_RuntimeMigration.esp')}|ConvertTo-Json|Set-Content $profileEvidence
     $captureOutput = Join-Path $testRoot 'runtime-capture.json'
     $result = Invoke-Child $captureScript @(
         '-V1PapyrusLog', $v1Log,
@@ -88,12 +109,17 @@ try {
         '-SaveBefore', $saveBefore,
         '-SaveAfter', $saveAfter,
         '-StageManifest', $manifestPath,
+        '-RuntimeEvidence', $runtimeEvidence,
+        '-ProfileEvidence', $profileEvidence,
+        '-RunId', 'run-test-0001',
+        '-V1PhaseUtc', $v1Phase.ToString('o'),
+        '-V2PhaseUtc', $v2Phase.ToString('o'),
         '-CaptureOutput', $captureOutput
     )
     Assert-True ($result.ExitCode -eq 0) "runtime capture contract rejected valid inputs: $($result.Output)"
     $capture = Get-Content -Raw -LiteralPath $captureOutput | ConvertFrom-Json
     Assert-True ($capture.result -eq 'UNVERIFIED_SUBMISSION') 'synthetic capture must remain an unverified submission'
-    Assert-True ($capture.markers.SEG_EVENT_OK -eq 'V1') 'event marker was not attributed to V1'
+    Assert-True ($capture.markers.SEG_EVENT_OK -eq 'V1-and-V2-exact-schema') 'event markers were not schema-bound to both phases'
     Assert-True ($capture.markers.SEG_MIGRATION_OLD -eq 'V1') 'old marker was not attributed to V1'
     Assert-True ($capture.markers.SEG_MIGRATION_NEW -eq 'V2') 'new marker was not attributed to V2'
     Assert-True ($capture.saves.before.sha256 -eq (Get-FileHash -Algorithm SHA256 -LiteralPath $saveBefore).Hash) 'pre-save hash is wrong'
@@ -107,6 +133,11 @@ try {
         '-SaveBefore', $saveBefore,
         '-SaveAfter', $saveAfter,
         '-StageManifest', $manifestPath,
+        '-RuntimeEvidence', $runtimeEvidence,
+        '-ProfileEvidence', $profileEvidence,
+        '-RunId', 'run-test-0002',
+        '-V1PhaseUtc', $v1Phase.ToString('o'),
+        '-V2PhaseUtc', $v2Phase.ToString('o'),
         '-CaptureOutput', $badCapture
     )
     Assert-True ($result.ExitCode -ne 0) 'capture accepted a V2 log without SEG_MIGRATION_NEW'

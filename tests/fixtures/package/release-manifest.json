@@ -162,8 +162,8 @@
                   },
                   {
                       "path":  "tests/fixtures/papyrus/Prepare-RuntimeMigration.ps1",
-                      "bytes":  4050,
-                      "sha256":  "A69B69B3CF2C991A2030ABFA090E23DC8575D264967EA8EF4E5254A7A595E2B8"
+                      "bytes":  6448,
+                      "sha256":  "BF3EFDC9BE56CC2FE09CEE1DA40A069ED1A98480A569F2507AB82F32EFCAC770"
                   },
                   {
                       "path":  "tests/fixtures/papyrus/SEG_InvalidEvent.psc",
@@ -177,8 +177,8 @@
                   },
                   {
                       "path":  "tests/fixtures/papyrus/Test-RuntimeCapture.ps1",
-                      "bytes":  5139,
-                      "sha256":  "7AC0BF7766E2CAA8AE4997C88F00AF72165712BC5A08B6F3E6396545082C7290"
+                      "bytes":  7390,
+                      "sha256":  "E6A84B95239054DB076DE54CAF1EDCDE0F2D08E98827276232A6CE25E484848F"
                   },
                   {
                       "path":  "tests/fixtures/papyrus/compiler-evidence.txt",
@@ -187,8 +187,13 @@
                   },
                   {
                       "path":  "tests/fixtures/papyrus/papyrus-runtime-contract.json",
-                      "bytes":  1137,
-                      "sha256":  "27B32C21296DA997E07A0EDCB65EAE4C05778F8E03DEE871A347F719BA2FDDA1"
+                      "bytes":  1476,
+                      "sha256":  "7400DEDFC9A0496F321C9A0AE4AECEDC88B0B911476DE006B8EEC96F0C3644CF"
+                  },
+                  {
+                      "path":  "tests/fixtures/papyrus/papyrus-runtime-runbook.md",
+                      "bytes":  2008,
+                      "sha256":  "548E87D9AA14878C359F786B7F44A75C25427B3A090096E2A6ED7A098F05BB58"
                   },
                   {
                       "path":  "tests/fixtures/papyrus/runtime-v1/SEG_RuntimeMigration.psc",
@@ -197,13 +202,13 @@
                   },
                   {
                       "path":  "tests/fixtures/papyrus/runtime-v2/SEG_RuntimeMigration.psc",
-                      "bytes":  325,
-                      "sha256":  "D201C19CD44B03B3BA33DC6C79722DB71685695E6AB99E68C56BFDCE807571D5"
+                      "bytes":  370,
+                      "sha256":  "E355440B31212C3667B80662595BC693A252BBDAE9CE7A413CBB637DFD75A5B0"
                   },
                   {
                       "path":  "tests/fixtures/preparation/Test-PreparationContracts.ps1",
-                      "bytes":  10662,
-                      "sha256":  "A1460E1461AABAF91335C8B5F9D1F67859285CA203810069146853267EEEB596"
+                      "bytes":  13606,
+                      "sha256":  "49C0CB101DA5036DC13B9255E4EB87C7A27F3B370F1AEED8E41D5A9AE77F72D6"
                   },
                   {
                       "path":  "tests/fixtures/runtime/Test-IsolatedRuntimeCompatibility.ps1",

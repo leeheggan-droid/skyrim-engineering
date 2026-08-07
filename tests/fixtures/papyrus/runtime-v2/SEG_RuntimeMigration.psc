@@ -10,6 +10,7 @@ EndEvent
 Event OnUpdate()
     If SEGSchemaVersion == 1
         SEGSchemaVersion = 2
+        Debug.Trace("SEG_EVENT_OK schema=2")
         Debug.Trace("SEG_MIGRATION_NEW from=1 to=2")
     EndIf
 EndEvent

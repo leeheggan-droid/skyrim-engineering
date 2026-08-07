@@ -9,7 +9,8 @@
     "V1": "tests/fixtures/papyrus/runtime-v1/SEG_RuntimeMigration.psc",
     "V2": "tests/fixtures/papyrus/runtime-v2/SEG_RuntimeMigration.psc"
   },
-  "preparationCommand": "powershell -File tests/fixtures/papyrus/Prepare-RuntimeMigration.ps1 -V1Pex <V1-PEX> -V2Pex <V2-PEX> -StagingRoot C:\\tmp\\<fresh-root>",
+  "contractVersion": 2,
+  "preparationCommand": "pwsh -NoProfile -File tests/fixtures/papyrus/Prepare-RuntimeMigration.ps1 -V1Pex <V1-PEX> -V2Pex <V2-PEX> -Plugin <original-ESP> -PluginEvidence <plugin-evidence.json> -CompilerEvidence <compiler-evidence.json> -StagingRoot C:\\tmp\\<fresh-root>",
   "requiredEvidence": [
     "fresh-V1-log-SEG_EVENT_OK",
     "fresh-V1-log-SEG_MIGRATION_OLD",
@@ -18,6 +19,7 @@
     "pre-save-hash",
     "post-save-hash"
   ],
-  "captureCommand": "powershell -File tests/fixtures/papyrus/Test-RuntimeCapture.ps1 -V1PapyrusLog <V1-log> -V2PapyrusLog <V2-log> -SaveBefore <save-A> -SaveAfter <save-B> -StageManifest <manifest> -CaptureOutput C:\\tmp\\<capture>.json",
+  "captureCommand": "pwsh -NoProfile -File tests/fixtures/papyrus/Test-RuntimeCapture.ps1 -V1PapyrusLog <V1-log> -V2PapyrusLog <V2-log> -SaveBefore <save-A.ess> -SaveAfter <save-B.ess> -StageManifest <manifest> -RuntimeEvidence <runtime.json> -ProfileEvidence <profile.json> -RunId <anonymous-run-id> -V1PhaseUtc <UTC> -V2PhaseUtc <UTC> -CaptureOutput C:\\tmp\\<capture>.json",
+  "runbook": "tests/fixtures/papyrus/papyrus-runtime-runbook.md",
   "limitations": "No runtime evidence is present. An authorized operator must launch Skyrim, create/load disposable saves, and capture fresh phase-separated logs."
 }

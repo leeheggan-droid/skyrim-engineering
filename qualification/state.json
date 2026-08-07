@@ -41,7 +41,7 @@
       "captureSchema": "skyrim-engineering.qualification.papyrus-runtime/v1",
       "observation": "The compiler and staged-byte contracts pass, but no disposable-save V1-to-V2 runtime capture is retained.",
       "hypothesis": "A live, phase-separated V1-to-V2 save/load run will produce the required migration markers and distinct save hashes.",
-      "reproductionCommand": "pwsh -File tests/fixtures/papyrus/Test-RuntimeCapture.ps1 -V1PapyrusLog <v1-log> -V2PapyrusLog <v2-log> -SaveBefore <save-before> -SaveAfter <save-after> -StageManifest <manifest> -CaptureOutput <capture>",
+      "reproductionCommand": "Follow tests/fixtures/papyrus/papyrus-runtime-runbook.md, then run Test-RuntimeCapture.ps1 with logs, ESS saves, stage/runtime/profile evidence, anonymous run ID, and ordered UTC phase timestamps.",
       "cleanupCommand": "Delete only the named disposable runtime profile after retaining sanitized metadata and hashes.",
       "blockingDependency": "Synthetic input validation cannot establish runtime provenance; a named human reviewer must assess a fresh live capture.",
       "humanReviewRequired": true
