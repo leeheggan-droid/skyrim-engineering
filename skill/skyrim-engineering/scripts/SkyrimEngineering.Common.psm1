@@ -152,9 +152,11 @@ function Protect-DiagnosticText {
     )
 
     $protected = $Text
+    $protected = [regex]::Replace($protected, '(?i)(["''])(?:[A-Z]:(?:\\|/)|\\\\)[^"''\r\n]+\1', '$1[REDACTED:path]$1')
     $protected = [regex]::Replace($protected, '(?i)[A-Z]:[\\/]+Users[\\/]+[^\\/\s]+', '[REDACTED:username]')
     $protected = [regex]::Replace($protected, '(?i)/Users/[^/\s]+', '[REDACTED:username]')
     $protected = [regex]::Replace($protected, '(?i)/home/[^/\s]+(?:/[^\s;]*)?', '[REDACTED:path]')
+    $protected = [regex]::Replace($protected, '(?i)(?<![A-Za-z0-9_.-])/(?:root|var|opt|srv|etc|run|tmp|usr/local)(?:/[^\s;"'']+)+', '[REDACTED:path]')
     $protected = [regex]::Replace($protected, '(?i)\\\\[^\\/\s]+[\\/][^\s;]+', '[REDACTED:path]')
     $protected = [regex]::Replace($protected, '(?i)(?<![A-Z0-9_])[A-Z]:[\\/](?![\\/])[^\s;]+', '[REDACTED:path]')
     $protected = [regex]::Replace($protected, '(?im)\b(username|user)\b(\s*[:=]\s*)(?:"[^"]*"|''[^'']*''|[^\s;]+)', '$1$2[REDACTED:username]')
@@ -169,15 +171,16 @@ function Protect-DiagnosticText {
         }
         return $match.Value
     }
-    $protected = [regex]::Replace($protected, '(?<![0-9A-Fa-f:])(?:[0-9A-Fa-f]{1,4}:){2,}[0-9A-Fa-f:]{0,39}(?![0-9A-Fa-f:])', $ipv6Evaluator)
+    $protected = [regex]::Replace($protected, '(?<![0-9A-Za-z:])(?:[0-9A-Fa-f]{0,4}:){1,7}[0-9A-Fa-f]{0,4}(?:%[0-9A-Za-z_.-]+)?(?![0-9A-Za-z:])', $ipv6Evaluator)
     $protected = [regex]::Replace($protected, '(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', '[REDACTED:email]')
     $protected = [regex]::Replace($protected, '(?i)\b(?:[A-Z0-9-]+\.)+(?:test|local|internal|lan|com|net|org)\b', '[REDACTED:hostname]')
     $protected = [regex]::Replace($protected, '(?im)\bauthorization\b(\s*[:=]\s*)(?:"[^"]*"|''[^'']*''|[^\r\n;]+)', 'Authorization$1[REDACTED:token]')
     $protected = [regex]::Replace($protected, '(?im)\b(password|passwd|pwd)\b(\s*[:=]\s*)(?:"[^"]*"|''[^'']*''|[^\s;]+)', '$1$2[REDACTED:password]')
     $protected = [regex]::Replace($protected, '(?im)\b(token|api[\s_-]*key)\b(\s*[:=]\s*)(?:"[^"]*"|''[^'']*''|[^\s;]+)', '$1$2[REDACTED:token]')
+    $protected = [regex]::Replace($protected, '(?i)(?<=[?&;])(access_token|refresh_token|id_token|api_key)(=)[^&#\s"'']+', '$1$2[REDACTED:token]')
     $protected = [regex]::Replace($protected, '(?im)\b(?:Bearer|Basic|Digest|Negotiate)\s+(?:"[^"]*"|''[^'']*''|[A-Za-z0-9._~+/=-]+)', '[REDACTED:token]')
     $protected = [regex]::Replace($protected, '(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}(?![A-Za-z0-9_-])', '[REDACTED:token]')
-    $protected = [regex]::Replace($protected, '(?im)\b(?:request|session|account|client|device)[\s_-]*id\b(\s*[:=]\s*)(?:"[^"]*"|''[^'']*''|[^\s;]+)', 'identifier$1[REDACTED:identifier]')
+    $protected = [regex]::Replace($protected, '(?im)\b(?:request|session|account|client|device|player|connection)[\s_-]*id\b(\s*[:=]\s*)(?:"[^"]*"|''[^'']*''|[^\s;]+)', 'identifier$1[REDACTED:identifier]')
     return $protected
 }
 

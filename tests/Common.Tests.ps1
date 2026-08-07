@@ -153,4 +153,50 @@ Describe 'Skyrim engineering common module' {
         @('path', 'ipv6', 'email', 'hostname', 'token', 'identifier') |
             ForEach-Object { $protected | Should -Match ("\[REDACTED:{0}\]" -f $_) }
     }
+
+    It 'redacts compressed IPv6 addresses including loopback' {
+        Import-Module -Force $modulePath
+        $input = 'peer=::1 fallback=fe80::1%12'
+        $protected = Protect-DiagnosticText -Text $input
+
+        $protected | Should -Not -Match '::1|fe80::1'
+        $protected | Should -Match '\[REDACTED:ipv6\]'
+    }
+
+    It 'redacts complete quoted Windows and UNC paths containing spaces' {
+        Import-Module -Force $modulePath
+        $windowsPath = 'D:' + '\Private Folder\User Name\crash.log'
+        $uncPath = '\\' + '\private-host\Private Share\User Name\crash.log'
+        $protected = Protect-DiagnosticText -Text ('"{0}" "{1}"' -f $windowsPath, $uncPath)
+
+        @($windowsPath, $uncPath, 'Private Folder', 'Private Share', 'User Name') |
+            ForEach-Object { $protected | Should -Not -Match ([regex]::Escape($_)) }
+        ([regex]::Matches($protected, '\[REDACTED:path\]')).Count | Should -Be 2
+    }
+
+    It 'redacts absolute Unix service and log paths' {
+        Import-Module -Force $modulePath
+        $rootPath = '/root/private/crash.log'
+        $varPath = '/var/log/private/session.log'
+        $protected = Protect-DiagnosticText -Text "$rootPath $varPath"
+
+        @($rootPath, $varPath) | ForEach-Object { $protected | Should -Not -Match ([regex]::Escape($_)) }
+        ([regex]::Matches($protected, '\[REDACTED:path\]')).Count | Should -Be 2
+    }
+
+    It 'redacts player and connection identifiers' {
+        Import-Module -Force $modulePath
+        $protected = Protect-DiagnosticText -Text 'playerId=synthetic-player-987 connection_id=synthetic-connection-987'
+
+        $protected | Should -Not -Match 'synthetic-player-987|synthetic-connection-987'
+        ([regex]::Matches($protected, '\[REDACTED:identifier\]')).Count | Should -Be 2
+    }
+
+    It 'redacts secrets in URL query parameters' {
+        Import-Module -Force $modulePath
+        $protected = Protect-DiagnosticText -Text 'callback?access_token=synthetic-access-987&refresh_token=synthetic-refresh-987&api_key=synthetic-api-987'
+
+        $protected | Should -Not -Match 'synthetic-access-987|synthetic-refresh-987|synthetic-api-987'
+        ([regex]::Matches($protected, '\[REDACTED:token\]')).Count | Should -Be 3
+    }
 }
