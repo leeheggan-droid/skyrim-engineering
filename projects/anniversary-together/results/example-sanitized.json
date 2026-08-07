@@ -1,0 +1,47 @@
+{
+  "schema": "skyrim-engineering.anniversary-together.result/v1",
+  "testId": "CONTROL-001",
+  "status": "untested",
+  "versions": {
+    "skyrimRuntime": "not-executed",
+    "skyrimTogetherReborn": "not-executed",
+    "server": "not-executed"
+  },
+  "participants": [
+    "host"
+  ],
+  "checkpoint": "schema-example-only",
+  "expected": [
+    "A live operator replaces this illustrative record with sanitized evidence."
+  ],
+  "actual": [
+    "No game, server, network, or client execution occurred for this example."
+  ],
+  "analysis": {
+    "observation": "This file demonstrates the public result shape without claiming a practical result.",
+    "hypothesis": "A future disposable live run can populate the contract without publishing private data or licensed assets.",
+    "confidence": "high",
+    "tests": [
+      "JSON Schema structure only; no live compatibility test"
+    ],
+    "uncertainty": "All runtime and multiplayer behavior remains untested.",
+    "falsifyingCheck": "Execute CONTROL-001 on an authorized disposable profile and replace every illustrative hash with a hash of manually reviewed sanitized evidence."
+  },
+  "creationAttribution": [
+    {
+      "creationId": "schema-example",
+      "pluginFilename": "example.esm",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "pluginType": "esm",
+      "internalFlag": "notInspected",
+      "assessment": "unknown",
+      "basis": "Illustrative zero hash only; not evidence of a Bethesda file or installed Creation."
+    }
+  ],
+  "evidence": [
+    {
+      "path": "schema-example.json",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ]
+}
