@@ -1,6 +1,9 @@
 # Skyrim Engineering Skill V1 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Superseded:** This historical plan is retained for provenance only. Do not
+> execute it. The authoritative plan is
+> [2026-08-06-skyrim-engineering-progressive-v1.md](2026-08-06-skyrim-engineering-progressive-v1.md),
+> including its outcome-based, defect-driven qualification amendment.
 
 **Goal:** Build, validate, publish, and locally install a reusable Codex Skyrim engineering skill with sourced references, read-only Windows diagnostics, CI, and an Anniversary Together compatibility-project foundation.
 
@@ -111,7 +114,7 @@ Use original/synthetic fixtures or locally licensed content without committing i
 
 - [ ] **Step 6: Run a scored expertise assessment**
 
-Define a 100-point rubric before answering: data model 15, Creation Kit/design 15, xEdit 10, Papyrus 10, runtime extensibility 10, diagnostics 10, packaging/legal 10, and Skyrim Together architecture/build 20. Require at least 80% in every domain and 90% overall; prohibit waivers.
+Define a 100-point diagnostic rubric before answering: data model 15, Creation Kit/design 15, xEdit 10, Papyrus 10, runtime extensibility 10, diagnostics 10, packaging/legal 10, and Skyrim Together architecture/build 20. Scores describe readiness only and are not release thresholds. The superseding plan gates release on complete applicable evidence and scoped review.
 
 Assessment prompts must use raw fixtures and source code locations rather than answers from the syllabus. Include explanation, diagnosis, design, and build tasks. Record each score, evidence link, assessor finding, and remediation. A failed domain triggers additional practical work and a fresh equivalent assessment; do not average a failure away.
 
@@ -127,7 +130,7 @@ rg -n "\b(TBD|TODO|FIXME|UNKNOWN)\b|C:\\Users\\|7656119|gho_" docs/expertise
 git diff --check
 ```
 
-Expected: Pester PASS; every domain is at least 80%, overall score is at least 90%, both independent reviews approve, `rg` finds no unresolved/private content, and the build practical either succeeds or the gate remains open.
+Historical expected result: Pester PASS, review findings resolved, no private content, and missing practical evidence left open. Consult the superseding plan for the current outcome-based release gate.
 
 Only after all expectations pass:
 

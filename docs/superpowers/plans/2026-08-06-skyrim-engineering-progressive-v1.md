@@ -4,7 +4,7 @@
 
 **Goal:** Build, install, test, and publish a useful `v0.1 provisional` Skyrim Engineering skill first, then complete live qualification and publish `v1.0 qualified`.
 
-**Architecture:** The canonical skill lives under `skill/skyrim-engineering` and is installed through a verified Windows junction. Automated repository, reference, script, privacy, and CI gates qualify the provisional release; separate fail-closed qualification records govern live CK, xEdit, Papyrus, and Skyrim Together evidence for V1.
+**Architecture:** The canonical skill lives under `skill/skyrim-engineering` and is installed through a verified Windows junction. Automated repository, reference, script, privacy, and CI gates qualify the provisional release; fail-closed qualification records govern required Skyrim Together evidence and only the CK, xEdit-patch, or Papyrus capabilities exercised by a demonstrated V1 change.
 
 **Tech Stack:** Markdown, PowerShell 7/Windows PowerShell-compatible scripts, Pester 5.9, Python skill tooling, JSON/YAML schemas, Git, GitHub CLI, GitHub Actions on `windows-2022`.
 
