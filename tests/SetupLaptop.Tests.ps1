@@ -152,8 +152,8 @@ Describe 'setup-laptop provisional read-only bootstrap' {
         $result.exitCode | Should -Not -Be 0
         $output | Should -Match '"schema":"skyrim-engineering\.laptop-deferred/v1"'
         $output | Should -Match ('"mode":"' + $mode + '"')
-        $output | Should -Match 'native\s+Windows\s+handle-relative\s+writer'
-        $output | Should -Match 'OS-protected\s+journal'
+        $output | Should -Match 'nativeWindowsHandleRelativeWriter'
+        $output | Should -Match 'osProtectedJournal'
         $output | Should -Match 'AuditOnly.*Plan.*Verify'
         (Get-CaseTreeSnapshot $caseRoot) | Should -BeExactly $before
     }
