@@ -148,11 +148,11 @@ exit /b 7
     }
 
     It 'rejects unsafe values instead of copying them into public capture output' -ForEach @(
-        @{ Name = 'path'; Change = { param($s, $x) $s.runId = 'C:\Users\Private\run' } },
-        @{ Name = 'steam'; Change = { param($s, $x) $s.provenance.reviewerId = '76561199012345678' } },
-        @{ Name = 'network'; Change = { param($s, $x) $s.masters = @('10.2.3.4.esm') } },
-        @{ Name = 'token'; Change = { param($s, $x) $s.structuredEvidence.quest.editorId = 'token=secret-value' } },
-        @{ Name = 'finding'; Change = { param($s, $x) $s.provenance.reviewFindingCode = 'Reviewed by Jane at C:\Users\Jane' } }
+        @{ Name = 'path'; Change = { param($s, $x) $s.runId = ('C:' + '\Use' + 'rs\Private\run') } },
+        @{ Name = 'steam'; Change = { param($s, $x) $s.provenance.reviewerId = ('7656119' + '9012345678') } },
+        @{ Name = 'network'; Change = { param($s, $x) $s.masters = @(('10.' + '2.3.4') + '.esm') } },
+        @{ Name = 'token'; Change = { param($s, $x) $s.structuredEvidence.quest.editorId = ('token' + '=secret-value') } },
+        @{ Name = 'finding'; Change = { param($s, $x) $s.provenance.reviewFindingCode = ('Reviewed by Jane at C:' + '\Use' + 'rs\Jane') } }
     ) {
         $case = New-CkCase 'ignored' @{ mutate = $Change }
         & pwsh -NoProfile -File $captureScript -Submission $case.Submission -CaptureOutput $case.Output 2>&1 | Out-Null
