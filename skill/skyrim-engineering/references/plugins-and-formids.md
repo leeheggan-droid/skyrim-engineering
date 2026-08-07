@@ -9,6 +9,22 @@ Baseline: 2026-08-06. Use [xEdit 4.1.5f source](https://github.com/TES5Edit/TES5
 - On-disk record identity, master-relative identity, and runtime identity are different contexts. Preserve the plugin filename, light/standard classification, master list, and load order with every reported ID.
 - In Together, the upstream client maps a local FormID to `{server ModId, BaseId}` by filename/classification and reconstructs a receiver-local FormID. Different local indices can therefore refer to the same plugin record, but filename parity alone does not prove byte parity.
 
+### Worked light-plugin runtime example
+
+For the runtime-local FormID `0xFE123ABC`, decode the packed fields as unsigned values:
+
+```powershell
+$runtimeId = [uint32]0xFE123ABC
+$prefix = ($runtimeId -shr 24) -band 0xFF       # 0xFE
+$lightIndex = ($runtimeId -shr 12) -band 0xFFF # 0x123
+$objectId = $runtimeId -band 0xFFF             # 0xABC
+$roundTrip = 0xFE000000 -bor ($lightIndex -shl 12) -bor $objectId # 0xFE123ABC
+```
+
+The masks and shifts decode and re-encode the runtime value without changing it. Here `0x123` means slot 291 only in that machine's resolved light-plugin load order, so `0xFE123ABC` is not a portable identity and may differ on another client.
+
+Do not mistake that runtime-local address for on-disk/master-relative identity. Persistent evidence must name the owning plugin and record's plugin/master-relative identity, plus the plugin classification and master list. Resolve that identity through each client's actual load order to obtain its runtime FormID; never store or compare only the `0xFE...` value across machines.
+
 ## Safe analysis sequence
 
 1. Copy no licensed plugin into Git. Open the isolated profile in SSEEdit/xEdit with the exact active list.

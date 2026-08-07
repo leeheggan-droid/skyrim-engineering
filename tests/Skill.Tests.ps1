@@ -46,4 +46,9 @@ Describe 'Skyrim engineering skill' {
         $skill | Should -Match 'reproduce before patch'
         $skill | Should -Match 'do not build a parallel replacement'
     }
+
+    It 'routes Creation inventory work to its executable entry point' {
+        $skill | Should -Match ([regex]::Escape('scripts/inventory-creations.ps1'))
+        $skill | Should -Match ([regex]::Escape('references/anniversary-creations.md'))
+    }
 }

@@ -33,6 +33,30 @@ Describe 'Versioned Skyrim engineering references' {
         $catalogue | Should -Not -Match '(?i)download\s+(?:the\s+)?(?:asset|BSA|plugin)'
     }
 
+    It 'documents a discoverable inventory invocation and safe handling of catalogue extras' {
+        $catalogue = Get-Content -Raw (Join-Path $referenceRoot 'anniversary-creations.md')
+        @(
+            'scripts/inventory-creations.ps1'
+            '-DataPath'
+            'unknown/out-of-scope'
+            'no completeness claim'
+            'never redistribute'
+        ) | ForEach-Object { $catalogue | Should -Match ([regex]::Escape($_)) }
+    }
+
+    It 'works a light FormID decode and distinguishes runtime from persistent identity' {
+        $formIds = Get-Content -Raw (Join-Path $referenceRoot 'plugins-and-formids.md')
+        @(
+            '0xFE123ABC'
+            '0x123'
+            '0xABC'
+            '-shr 12'
+            '-band 0xFFF'
+            'master-relative'
+            'not a portable identity'
+        ) | ForEach-Object { $formIds | Should -Match ([regex]::Escape($_)) }
+    }
+
     It 'makes Anniversary Together patching evidence led and integration first' {
         $together = Get-Content -Raw (Join-Path $referenceRoot 'together-reborn.md')
         @('upstream behavior', 'prior art', 'reproduce before patch', 'GPL-3.0') |

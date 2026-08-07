@@ -6,6 +6,23 @@ Baseline: 2026-08-06. Scope: the 74 Creation Club items in Bethesda's 2021 Anniv
 
 [Bethesda's launch catalogue](https://elderscrolls.bethesda.net/en-AU/news/3mxTW4iQYGrVZrWRqVfomQ/skyrim-anniversary-edition-and-creation-club-content-first-look) is authoritative for the 74 English display names. Bethesda does not publish a complete filename crosswalk on that page. Plugin identifiers below are a lowercase comparison key cross-checked against the [community-maintained factual catalogue](https://www.confrerie-des-traducteurs.fr/wiki/Anniversary_Edition), which attributes its mapping to UESP. The complete identifier set was reproduced from a licensed installation by `inventory-creations.ps1` on 2026-08-06; the display-name mapping remains source-backed rather than inferred from asset content. Never acquire or redistribute a plugin or BSA from this list.
 
+## Run the licensed inventory
+
+From the `skill/skyrim-engineering` directory, inventory a local licensed Data directory without copying its content:
+
+```powershell
+& ./scripts/inventory-creations.ps1 -DataPath 'C:\path\to\Skyrim Special Edition\Data' -LoadOrderPath 'C:\path\to\loadorder.txt' -Json
+```
+
+Omit `-LoadOrderPath` when no trustworthy active load-order file is available. Treat the JSON as private diagnostic evidence until reviewed: it contains filenames and hashes, even though the script omits absolute paths.
+
+The table below is exactly the 2021 Anniversary bundle baseline, not a universal catalogue. For optional add-ons or files beyond these 74 identifiers:
+
+1. Keep each extra installed only on its licensed machine; never redistribute its plugin, archive, or extracted records.
+2. Record its lowercase filename, extension/flag classification, hash, source/store, and observed load order separately.
+3. Classify it as `unknown/out-of-scope` until its provenance and intended test scope are verified. Do not silently add it to the 74 baseline.
+4. Compare the same separately declared extra across clients before multiplayer testing. A local match supports parity only; make no completeness claim or compatibility claim from an inventory alone.
+
 ## Display name to plugin identifier
 
 | # | Official display name | Plugin identifier |

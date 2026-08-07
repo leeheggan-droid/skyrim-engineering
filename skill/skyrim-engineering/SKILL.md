@@ -28,6 +28,8 @@ Load the one reference that owns the task before investigating:
 
 If a task crosses surfaces, start with the failing boundary, then load only the directly linked secondary reference. Do not preload all references.
 
+For a licensed Anniversary inventory, load `references/anniversary-creations.md` and use its exact `scripts/inventory-creations.ps1` invocation.
+
 ## Integration-first workflow
 
 1. **Discover versions.** Record store, `SkyrimSE.exe` product/file version, SKSE, Address Library, tool versions, Together commit/release, Creation state, plugin order, mod-manager profile, and whether the save is disposable.
